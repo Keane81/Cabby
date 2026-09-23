@@ -14,7 +14,7 @@ import (
 func TestHealthResponse(t *testing.T) {
 	var logs bytes.Buffer
 	logger := zerolog.New(&logs).With().Timestamp().Logger()
-	handler := NewPublicHandler(func() bool { return true }, logger)
+	handler := NewRouter(func() bool { return true }, logger, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/healthz", strings.NewReader("ignored-body"))
 	response := httptest.NewRecorder()
@@ -41,7 +41,7 @@ func TestHealthResponse(t *testing.T) {
 func TestHealthUnavailableAndSafeLog(t *testing.T) {
 	var logs bytes.Buffer
 	logger := zerolog.New(&logs).With().Timestamp().Logger()
-	handler := NewPublicHandler(func() bool { return false }, logger)
+	handler := NewRouter(func() bool { return false }, logger, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/healthz", strings.NewReader("secret-body"))
 	response := httptest.NewRecorder()
@@ -79,16 +79,17 @@ func TestHealthUnavailableAndSafeLog(t *testing.T) {
 
 func TestUnsupportedPublicRequests(t *testing.T) {
 	logger := zerolog.Nop()
-	handler := NewPublicHandler(func() bool { return true }, logger)
+	handler := NewRouter(func() bool { return true }, logger, nil)
 	tests := []struct {
-		method string
-		path   string
-		want   int
+		method   string
+		path     string
+		want     int
+		wantCode ErrorCode
 	}{
-		{http.MethodPost, "/healthz", http.StatusMethodNotAllowed},
-		{http.MethodHead, "/healthz", http.StatusMethodNotAllowed},
-		{http.MethodGet, "/unknown", http.StatusNotFound},
-		{http.MethodGet, "/metrics", http.StatusNotFound},
+		{http.MethodPost, "/healthz", http.StatusMethodNotAllowed, CodeMethodNotAllowed},
+		{http.MethodHead, "/healthz", http.StatusMethodNotAllowed, CodeMethodNotAllowed},
+		{http.MethodGet, "/unknown", http.StatusNotFound, CodeUnknownOperation},
+		{http.MethodGet, "/metrics", http.StatusNotFound, CodeUnknownOperation},
 	}
 	for _, test := range tests {
 		t.Run(test.method+" "+test.path, func(t *testing.T) {
@@ -96,6 +97,50 @@ func TestUnsupportedPublicRequests(t *testing.T) {
 			handler.ServeHTTP(response, httptest.NewRequest(test.method, test.path, nil))
 			if response.Code != test.want {
 				t.Fatalf("status = %d, want %d", response.Code, test.want)
+			}
+			if got := response.Header().Get("Content-Type"); got != "application/json" {
+				t.Fatalf("content type = %q, want application/json", got)
+			}
+			if detail := decodeError(t, response.Body.Bytes()); detail.Code != test.wantCode {
+				t.Fatalf("error code = %q, want %q", detail.Code, test.wantCode)
+			}
+		})
+	}
+}
+
+func TestHealthStatusSchemaConformance(t *testing.T) {
+	cases := []struct {
+		name       string
+		ready      bool
+		wantStatus int
+		wantValue  string
+	}{
+		{"ready", true, http.StatusOK, "ok"},
+		{"not ready", false, http.StatusServiceUnavailable, "unavailable"},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			ready := test.ready
+			handler := NewRouter(func() bool { return ready }, zerolog.Nop(), nil)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+
+			if response.Code != test.wantStatus {
+				t.Fatalf("status = %d, want %d", response.Code, test.wantStatus)
+			}
+			var result map[string]json.RawMessage
+			if err := json.Unmarshal(response.Body.Bytes(), &result); err != nil {
+				t.Fatalf("body is not a JSON object: %v", err)
+			}
+			if len(result) != 1 {
+				t.Fatalf("HealthStatus must have exactly one field, got %d: %s", len(result), response.Body.String())
+			}
+			var value string
+			if err := json.Unmarshal(result["status"], &value); err != nil {
+				t.Fatalf("status is not a string: %v", err)
+			}
+			if value != test.wantValue {
+				t.Fatalf("status = %q, want %q", value, test.wantValue)
 			}
 		})
 	}

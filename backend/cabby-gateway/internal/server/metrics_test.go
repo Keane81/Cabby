@@ -18,7 +18,7 @@ func TestHealthMetricsTrackEachOutcomeOnce(t *testing.T) {
 
 	var ready atomic.Bool
 	ready.Store(true)
-	handler := NewPublicHandler(ready.Load, zerolog.Nop(), metrics)
+	handler := NewRouter(ready.Load, zerolog.Nop(), metrics)
 	request := func(method, path string) {
 		t.Helper()
 		response := httptest.NewRecorder()

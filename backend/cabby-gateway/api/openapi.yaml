@@ -1,0 +1,142 @@
+openapi: 3.1.0
+info:
+  title: cabby-gateway External API
+  version: 1.0.0
+  summary: Published external contract for cabby-gateway.
+  description: |
+    Authoritative machine-readable contract for external clients of cabby-gateway.
+
+    Scope of this version:
+      - health-check (`GET /healthz`) is the ONLY available business operation.
+        All other business operations are not yet exposed to external clients.
+      - Access is anonymous: no credentials are required.
+      - Gateway-level rejections (unknown path, wrong method) use the unified
+        `Error` envelope so clients can determine the failure category
+        programmatically.
+      - The health-check operation's own 200/503 responses are inherited
+        unchanged from the cabby-gateway health-check contract and use the
+        `HealthStatus` schema.
+      - The internal metrics interface (`GET /metrics`, internal port 9091) is
+        NOT part of this contract and is not exposed to external clients; on the
+        public port `/metrics` yields 404 `unknown_operation`.
+
+    Compatibility:
+      - The contract version is `info.version` (SemVer).
+      - Additive changes (new operations, new optional fields, new error codes)
+        are minor and backward compatible.
+      - Breaking changes require a major bump, a migration plan, and client
+        notification.
+      - Clients MUST tolerate unknown fields and unknown error codes and MUST
+        handle the absence of optional fields.
+
+    Discovery: this document is served read-only at `GET /openapi.yaml` and is
+    the single authoritative list of available operations and their version.
+servers:
+  - url: http://127.0.0.1:8082
+    description: >-
+      Local example. The public port is CABBY_GATEWAY_PORT from
+      backend/cabby-gateway/.env (8080 when the variable is unset).
+tags:
+  - name: health
+    description: Liveness/readiness of cabby-gateway for external clients.
+  - name: contract
+    description: Contract discovery and metadata (not a business operation).
+paths:
+  /healthz:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: Check whether cabby-gateway can process requests.
+      description: |
+        Anonymous, side-effect-free health-check. Extra data in the request is
+        ignored and does not change the result. A client treats only HTTP 200
+        with `status=ok` as a positive result; every other outcome means the
+        positive check is not confirmed.
+
+        Not-ready during graceful shutdown, or an internal processing failure,
+        yields HTTP 503 with `status=unavailable`. After the listener closes the
+        client sees a connection error or timeout instead.
+      responses:
+        '200':
+          description: Service is ready to process requests. Body status is `ok`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '405':
+          description: >-
+            Method not allowed for this path (including HEAD). Uses the unified
+            Error envelope with code `method_not_allowed`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: >-
+            Service accepted the request but is not ready (graceful shutdown) or
+            an internal processing failure occurred. Body status is `unavailable`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+  /openapi.yaml:
+    get:
+      tags: [contract]
+      operationId: getContract
+      summary: Fetch the published external contract (this document).
+      description: |
+        Read-only discovery endpoint serving the canonical OpenAPI document
+        embedded in the service. This is contract metadata, not a business
+        operation; it is not counted as a health-check and has no side effects.
+      responses:
+        '200':
+          description: The current published contract, in YAML.
+          content:
+            text/yaml:
+              schema:
+                type: string
+                description: UTF-8 YAML text of this OpenAPI document.
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      description: >-
+        Health-check result. `status=ok` accompanies HTTP 200;
+        `status=unavailable` accompanies HTTP 503. No other fields are present.
+      required: [status]
+      additionalProperties: false
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+    Error:
+      type: object
+      description: >-
+        Unified error envelope for gateway-level rejections and future
+        operation errors. Never contains secrets, internal implementation
+        details, or personal data.
+      required: [error]
+      additionalProperties: false
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          additionalProperties: false
+          properties:
+            code:
+              $ref: '#/components/schemas/ErrorCode'
+            message:
+              type: string
+              description: >-
+                Human-readable description of the failure. Safe to display;
+                contains no secrets, internal details, or personal data.
+    ErrorCode:
+      type: string
+      description: >-
+        Stable machine-readable failure category. The HTTP status is the primary
+        indicator; `code` refines it for programmatic handling. New codes are
+        added as minor (backward-compatible) changes; clients MUST tolerate
+        unknown codes.
+      enum:
+        - unknown_operation
+        - method_not_allowed
