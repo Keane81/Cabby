@@ -1,0 +1,9 @@
+.git
+.env*
+.DS_Store
+vendor/
+*.test
+*.out
+coverage/
+Dockerfile*
+.dockerignore
