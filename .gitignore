@@ -30,3 +30,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Spec Kit: .specify/.gitignore excludes local feature.json and extension overrides.
+# Keep specs/, the constitution, scripts, templates, and integration files versioned.
