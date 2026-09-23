@@ -1,0 +1,25 @@
+{
+  "name": "cabby-gateway",
+  "type": "collection",
+  "ignore": [
+    "node_modules",
+    ".git"
+  ],
+  "size": 0.0002918243408203125,
+  "filesCount": 5,
+  "proxy": {
+    "inherit": false,
+    "config": {
+      "protocol": "http",
+      "hostname": "",
+      "port": "",
+      "auth": {
+        "username": "",
+        "password": ""
+      },
+      "bypassProxy": ""
+    },
+    "disabled": true
+  },
+  "version": "1"
+}
