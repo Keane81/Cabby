@@ -46,7 +46,7 @@ func run(ctx context.Context, logger zerolog.Logger) error {
 	ready.Store(true)
 
 	publicHTTP := &http.Server{
-		Handler:           server.NewPublicHandler(ready.Load, logger, metrics),
+		Handler:           server.NewRouter(ready.Load, logger, metrics),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
