@@ -2,14 +2,14 @@
   "version": "1.0.1",
   "integration_state_schema": 1,
   "installed_integrations": [
-    "codex"
+    "qodercli"
   ],
   "integration_settings": {
-    "codex": {
+    "qodercli": {
       "script": "sh",
       "invoke_separator": "-"
     }
   },
-  "integration": "codex",
-  "default_integration": "codex"
+  "integration": "qodercli",
+  "default_integration": "qodercli"
 }
