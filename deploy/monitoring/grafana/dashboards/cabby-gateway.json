@@ -1,0 +1,72 @@
+{
+  "uid": "cabby-gateway-health",
+  "title": "cabby-gateway health-check",
+  "tags": ["cabby-gateway"],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 1,
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "Health-check RPS",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "reqps",
+          "min": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "spanNulls": false,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "legendFormat": "success",
+          "interval": "1m",
+          "expr": "sum(rate(cabby_gateway_health_checks_total{outcome=\"success\"}[1m]) and on(job,instance) (min_over_time(up{job=\"cabby-gateway\"}[1m]) == 1) and on(job,instance) (count_over_time(up{job=\"cabby-gateway\"}[1m]) >= 4))"
+        },
+        {
+          "refId": "B",
+          "legendFormat": "failure",
+          "interval": "1m",
+          "expr": "sum(rate(cabby_gateway_health_checks_total{outcome=\"failure\"}[1m]) and on(job,instance) (min_over_time(up{job=\"cabby-gateway\"}[1m]) == 1) and on(job,instance) (count_over_time(up{job=\"cabby-gateway\"}[1m]) >= 4))"
+        },
+        {
+          "refId": "C",
+          "legendFormat": "total",
+          "interval": "1m",
+          "expr": "sum(rate(cabby_gateway_health_checks_total[1m]) and on(job,instance) (min_over_time(up{job=\"cabby-gateway\"}[1m]) == 1) and on(job,instance) (count_over_time(up{job=\"cabby-gateway\"}[1m]) >= 4))"
+        }
+      ]
+    }
+  ]
+}
