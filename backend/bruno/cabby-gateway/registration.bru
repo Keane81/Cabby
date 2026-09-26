@@ -1,0 +1,19 @@
+meta {
+  name: registration
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/cabbers
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Иван",
+    "email": "ivan@example.com",
+    "password": "1234"
+  }
+}

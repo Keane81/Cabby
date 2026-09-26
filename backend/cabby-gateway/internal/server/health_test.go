@@ -14,7 +14,7 @@ import (
 func TestHealthResponse(t *testing.T) {
 	var logs bytes.Buffer
 	logger := zerolog.New(&logs).With().Timestamp().Logger()
-	handler := NewRouter(func() bool { return true }, logger, nil)
+	handler := NewRouter(func() bool { return true }, logger, nil, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/healthz", strings.NewReader("ignored-body"))
 	response := httptest.NewRecorder()
@@ -41,7 +41,7 @@ func TestHealthResponse(t *testing.T) {
 func TestHealthUnavailableAndSafeLog(t *testing.T) {
 	var logs bytes.Buffer
 	logger := zerolog.New(&logs).With().Timestamp().Logger()
-	handler := NewRouter(func() bool { return false }, logger, nil)
+	handler := NewRouter(func() bool { return false }, logger, nil, nil)
 
 	request := httptest.NewRequest(http.MethodGet, "/healthz", strings.NewReader("secret-body"))
 	response := httptest.NewRecorder()
@@ -79,7 +79,7 @@ func TestHealthUnavailableAndSafeLog(t *testing.T) {
 
 func TestUnsupportedPublicRequests(t *testing.T) {
 	logger := zerolog.Nop()
-	handler := NewRouter(func() bool { return true }, logger, nil)
+	handler := NewRouter(func() bool { return true }, logger, nil, nil)
 	tests := []struct {
 		method   string
 		path     string
@@ -121,7 +121,7 @@ func TestHealthStatusSchemaConformance(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			ready := test.ready
-			handler := NewRouter(func() bool { return ready }, zerolog.Nop(), nil)
+			handler := NewRouter(func() bool { return ready }, zerolog.Nop(), nil, nil)
 			response := httptest.NewRecorder()
 			handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/healthz", nil))
 

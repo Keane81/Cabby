@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/authclient"
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/server"
 	"github.com/rs/zerolog"
 )
@@ -29,6 +30,20 @@ func main() {
 
 func run(ctx context.Context, logger zerolog.Logger) error {
 	var ready atomic.Bool
+	// The address of auth is required, but dialing it connects nowhere: grpc dials lazily, so the
+	// health-check operation keeps answering while the service is down (plan.md §Constraints).
+	authAddress := os.Getenv("CABBY_AUTH_ADDR")
+	if authAddress == "" {
+		return errors.New("CABBY_AUTH_ADDR is not set")
+	}
+	authClient, err := authclient.Dial(authAddress)
+	if err != nil {
+		return err
+	}
+	// Closing runs after the listeners have shut down: a request still in flight may need the
+	// dependency until the very end.
+	defer func() { _ = authClient.Close() }()
+
 	publicPort := os.Getenv("CABBY_GATEWAY_PORT")
 	if publicPort == "" {
 		publicPort = "8080"
@@ -46,7 +61,7 @@ func run(ctx context.Context, logger zerolog.Logger) error {
 	ready.Store(true)
 
 	publicHTTP := &http.Server{
-		Handler:           server.NewRouter(ready.Load, logger, metrics),
+		Handler:           server.NewRouter(ready.Load, logger, metrics, authClient),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -78,6 +93,7 @@ func run(ctx context.Context, logger zerolog.Logger) error {
 	logger.Info().
 		Str("public_address", publicListener.Addr().String()).
 		Str("metrics_address", metricsListener.Addr().String()).
+		Str("auth_address", authAddress).
 		Msg("gateway listening")
 
 	var firstResult *serveResult

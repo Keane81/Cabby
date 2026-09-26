@@ -14,7 +14,7 @@ import (
 )
 
 func TestContractServedByteIdentical(t *testing.T) {
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics())
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), nil)
 
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
@@ -32,7 +32,7 @@ func TestContractServedByteIdentical(t *testing.T) {
 
 func TestContractNotCountedAsHealthCheck(t *testing.T) {
 	metrics := NewMetrics()
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), metrics)
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), metrics, nil)
 
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
 
@@ -75,9 +75,41 @@ func TestCanonicalContractMatchesRepositoryReference(t *testing.T) {
 
 func TestRouterPathsAreDefinedInContract(t *testing.T) {
 	doc := string(api.OpenAPIDocument)
-	for _, path := range []string{pathHealth, pathContract} {
+	for _, path := range []string{pathHealth, pathContract, pathCabbers, pathCabberSession} {
 		if !contractPathDefined(doc, path) {
 			t.Fatalf("router path %q is not defined in the published contract", path)
 		}
 	}
+}
+
+// TestCabberOperationsAreNotInContract keeps the deliberate absence of password change and
+// recovery in the published contract (FR-026, SC-011): no path of theirs, and no operation that
+// reads like one.
+func TestCabberOperationsAreNotInContract(t *testing.T) {
+	doc := string(api.OpenAPIDocument)
+	for _, path := range []string{
+		"/cabbers/password",
+		"/cabbers/password/recovery",
+		"/cabber/session/recover",
+		"/cabbers/email/confirm",
+		"/cabbers/me",
+	} {
+		if contractPathDefined(doc, path) {
+			t.Errorf("the contract defines %q, which v1 leaves out on purpose", path)
+		}
+		if strings.Contains(strings.ToLower(doc), strings.ToLower(strings.TrimPrefix(path, "/"))) {
+			t.Errorf("the contract mentions %q", path)
+		}
+	}
+	for _, operation := range []string{"changePassword", "recoverPassword", "updateCabber", "deleteCabber"} {
+		if contractDeclaresOperation(doc, operation) {
+			t.Errorf("the contract declares operation %q", operation)
+		}
+	}
+}
+
+// contractDeclaresOperation reports whether operationId appears on a line of its own. A prefix
+// of a published operation — `deleteCabber` of `deleteCabberSession` — does not count.
+func contractDeclaresOperation(doc, operationID string) bool {
+	return regexp.MustCompile(`(?m)^\s+operationId: ` + regexp.QuoteMeta(operationID) + `\s*$`).MatchString(doc)
 }

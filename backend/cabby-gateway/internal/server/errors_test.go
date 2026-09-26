@@ -20,7 +20,7 @@ func decodeError(t *testing.T, body []byte) errorDetail {
 }
 
 func TestUnifiedErrorEnvelope(t *testing.T) {
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics())
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), nil)
 
 	tests := []struct {
 		name       string
@@ -65,7 +65,7 @@ func TestUnifiedErrorEnvelope(t *testing.T) {
 }
 
 func TestErrorDoesNotLeakRequestData(t *testing.T) {
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics())
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), nil)
 
 	const secret = "super-secret-token"
 	request := httptest.NewRequest(http.MethodPost, "/healthz", strings.NewReader(secret))

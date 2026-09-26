@@ -1,18 +1,22 @@
 openapi: 3.1.0
 info:
   title: cabby-gateway External API
-  version: 1.0.0
+  version: 1.1.0
   summary: Published external contract for cabby-gateway.
   description: |
     Authoritative machine-readable contract for external clients of cabby-gateway.
 
     Scope of this version:
-      - health-check (`GET /healthz`) is the ONLY available business operation.
-        All other business operations are not yet exposed to external clients.
-      - Access is anonymous: no credentials are required.
-      - Gateway-level rejections (unknown path, wrong method) use the unified
-        `Error` envelope so clients can determine the failure category
-        programmatically.
+      - health-check (`GET /healthz`) and the cabber account operations
+        (`POST /cabbers`, `POST /cabber/session`, `DELETE /cabber/session`).
+      - Registration and sign-in are anonymous; the cabber operations that need
+        a confirmed access send it as `Authorization: Bearer <access_token>`.
+      - Password change and recovery, email confirmation, profile read/update
+        and deregistration are deliberately absent: they are not part of this
+        contract, and calling them yields 404 `unknown_operation`.
+      - Gateway-level rejections (unknown path, wrong method) and the failures
+        of the operations above use the unified `Error` envelope so clients can
+        determine the failure category programmatically.
       - The health-check operation's own 200/503 responses are inherited
         unchanged from the cabby-gateway health-check contract and use the
         `HealthStatus` schema.
@@ -39,6 +43,9 @@ servers:
 tags:
   - name: health
     description: Liveness/readiness of cabby-gateway for external clients.
+  - name: cabber
+    description: >-
+      Account of a cabber — registration, sign-in and sign-out.
   - name: contract
     description: Contract discovery and metadata (not a business operation).
 paths:
@@ -79,6 +86,121 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/HealthStatus'
+  /cabbers:
+    post:
+      tags: [cabber]
+      operationId: registerCabber
+      summary: Create a cabber account.
+      description: |
+        Open, self-service registration: the account is active immediately, with no
+        email confirmation and no operator approval. Registration does not grant
+        access — a cabber signs in with `POST /cabber/session` to obtain one.
+
+        `email` is canonicalised (trimmed and lower-cased) before the uniqueness
+        check, so `A@b.com` and `a@b.com` claim the same account. The format check is
+        minimal: exactly one `@` with a non-empty part on each side. Nothing else about
+        an address is verified, so a working but meaningless address such as `a@b` is
+        accepted.
+
+        A rejected request creates nothing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CabberRegistrationRequest'
+      responses:
+        '201':
+          description: >-
+            Account created. The answer carries the assigned identifier and the
+            canonical email; it carries no password and no access data.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cabber'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '409':
+          description: >-
+            The email already belongs to an account and is claimed for good: it is
+            never released by inactivity or by a failed sign-in. The attributes of the
+            existing account are not disclosed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
+  /cabber/session:
+    post:
+      tags: [cabber]
+      operationId: createCabberSession
+      summary: Sign in and obtain a confirmed access.
+      description: |
+        Credentials are the canonical email and the password. A successful sign-in
+        opens a new access that is independent of the accesses the cabber already
+        holds: revoking one never affects the others.
+
+        Both failures — no such account and a wrong password — give the same answer:
+        HTTP 401 with code `unauthorized`, the same body and the same shape of delay,
+        so an answer cannot be used to find out whether an account exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CabberSessionRequest'
+      responses:
+        '201':
+          description: >-
+            Access granted. The bearer token is returned once and is never stored or
+            sent in clear by the service.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CabberSession'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
+    delete:
+      tags: [cabber]
+      operationId: deleteCabberSession
+      summary: Sign out and revoke the access the request presents.
+      description: |
+        The access to revoke is the one in the `Authorization: Bearer` header; the
+        identity of the caller comes from that access and from nothing else. Only the
+        presented access is revoked — the other accesses of the same cabber keep
+        working.
+
+        An absent header, an unknown scheme, an empty token, an expired, idle or
+        already revoked access and a repeated sign-out all give the same 401 answer,
+        and none of them revokes anything. A cabber who lost a token signs out by
+        letting it expire.
+      security:
+        - bearerAccess: []
+      responses:
+        '204':
+          description: >-
+            The access is revoked and cannot be presented again. No body is returned.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
   /openapi.yaml:
     get:
       tags: [contract]
@@ -97,6 +219,59 @@ paths:
                 type: string
                 description: UTF-8 YAML text of this OpenAPI document.
 components:
+  securitySchemes:
+    bearerAccess:
+      type: http
+      scheme: bearer
+      description: >-
+        The access obtained from `POST /cabber/session`, in the header
+        `Authorization: Bearer <access_token>`. Only the bearer scheme is accepted; an
+        absent header, another scheme and an empty token are rejected with the same 401
+        answer the service gives to an invalid access.
+  responses:
+    InvalidRequest:
+      description: >-
+        The request was rejected before anything was created or changed. `error.field`
+        names the field at fault; for a registration with several defects it names the
+        first one in the fixed order `name`, `email`, `password`.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    MethodNotAllowed:
+      description: >-
+        Method not allowed for this path. Uses the unified Error envelope with code
+        `method_not_allowed` and the `Allow` header.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: >-
+        The credentials or the access are not valid. One answer for every cause — no such
+        account, wrong password, absent or foreign authorization, expired, idle and revoked
+        access, repeated sign-out — so it cannot be used to tell the causes apart.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    InternalError:
+      description: >-
+        The gateway could not complete the request and has nothing to tell the client about
+        it: a fixed message with code `internal_error` and no details.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    DependencyUnavailable:
+      description: >-
+        The account service or its storage is unreachable or answered too slowly. The
+        request has no guaranteed outcome for the client, which must not read this answer
+        as a rejection of its credentials.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
   schemas:
     HealthStatus:
       type: object
@@ -109,12 +284,92 @@ components:
         status:
           type: string
           enum: [ok, unavailable]
+    CabberRegistrationRequest:
+      type: object
+      description: >-
+        Registration data. Lengths are counted in Unicode characters, not in bytes.
+      required: [name, email, password]
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 64
+          description: >-
+            Display name of the cabber. The surrounding spaces are removed, and a name
+            that becomes empty afterwards is rejected.
+        email:
+          type: string
+          maxLength: 254
+          description: >-
+            Address as the client typed it; the canonical form is what the account keeps.
+            Only the minimal form is checked — exactly one `@` with a non-empty part on
+            each side. Domain existence, syntax beyond that and deliverability are not
+            checked, and no warning is given for an odd-looking address.
+        password:
+          type: string
+          minLength: 4
+          maxLength: 16
+          description: >-
+            Any composition of characters is accepted and no weakness is reported. The
+            password appears in this request only: it is never stored in clear, returned
+            or logged.
+    Cabber:
+      type: object
+      description: The account as the service created it.
+      required: [cabber_id, email]
+      additionalProperties: false
+      properties:
+        cabber_id:
+          type: string
+          description: >-
+            Identifier assigned by the system and never changed. It is not credentials and
+            is accepted by no request.
+        email:
+          type: string
+          description: Canonical email of the account.
+    CabberSessionRequest:
+      type: object
+      description: >-
+        Credentials for signing in. The password is compared with the stored hash; the
+        registration length limits are not rechecked here, so only an absent or absurdly
+        long value is a 400.
+      required: [email, password]
+      additionalProperties: false
+      properties:
+        email:
+          type: string
+          maxLength: 254
+          description: >-
+            Address of the account, matched after the same canonicalisation registration
+            applies.
+        password:
+          type: string
+          maxLength: 16
+    CabberSession:
+      type: object
+      description: A confirmed access opened by a successful sign-in.
+      required: [access_token, expires_at]
+      additionalProperties: false
+      properties:
+        access_token:
+          type: string
+          description: >-
+            Opaque bearer credential. The service stores only its digest, so the value is
+            handed out once and cannot be recovered afterwards.
+        expires_at:
+          type: string
+          format: date-time
+          description: >-
+            Absolute limit of the access, at most 96 hours after it was opened. An access
+            also ends after 24 hours without use and the moment it is revoked, so a client
+            treats 401 as the signal to sign in again.
     Error:
       type: object
       description: >-
-        Unified error envelope for gateway-level rejections and future
-        operation errors. Never contains secrets, internal implementation
-        details, or personal data.
+        Unified error envelope for gateway-level rejections and the failures of the
+        operations above. Never contains secrets, internal implementation details, or
+        personal data.
       required: [error]
       additionalProperties: false
       properties:
@@ -130,6 +385,12 @@ components:
               description: >-
                 Human-readable description of the failure. Safe to display;
                 contains no secrets, internal details, or personal data.
+            field:
+              type: string
+              description: >-
+                Name of the request field the rejection refers to (`name`, `email`,
+                `password`). Present only when the failure names one; clients MUST
+                tolerate its absence.
     ErrorCode:
       type: string
       description: >-
@@ -140,3 +401,8 @@ components:
       enum:
         - unknown_operation
         - method_not_allowed
+        - invalid_request
+        - unauthorized
+        - email_taken
+        - service_unavailable
+        - internal_error
