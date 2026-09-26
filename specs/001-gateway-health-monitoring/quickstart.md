@@ -4,7 +4,7 @@
 
 ## Предусловия
 
-- Docker с Docker Compose для запуска полного стека; свободные локальные порты 8082 для gateway (значение из примера), 9090 для Prometheus и 3000 для Grafana. Порт gateway задаётся в `backend/cabby-gateway/.env` и используется также внутри контейнера. Порт Grafana можно изменить через `GRAFANA_PORT` в `deploy/monitoring/.env`; при занятом порте Prometheus задайте `PROMETHEUS_PORT` перед командами Compose.
+- Docker с Docker Compose для запуска полного стека; свободные локальные порты 8082 для gateway (значение из примера), 9090 для Prometheus и 3000 для Grafana. Порт gateway задаёт `CABBY_GATEWAY_PORT` в `backend/cabby-gateway/.env.example`, а локальный `.env` при наличии его перекрывает; то же значение используется внутри контейнера. Порт Grafana можно изменить через `GRAFANA_PORT` в `deploy/monitoring/.env`; при занятом порте Prometheus задайте `PROMETHEUS_PORT` перед командами Compose.
 - Для локальных проверок исходного кода — Go 1.26.1.
 - Для пятиминутного нагрузочного сценария — установленный [Vegeta](https://github.com/tsenart/vegeta).
 - Локальный пароль Grafana задан в `deploy/monitoring/.env` по образцу `deploy/monitoring/.env.example`; пароль не добавляется в Git.
@@ -14,17 +14,15 @@
 Из корня репозитория:
 
 ```sh
-cp backend/cabby-gateway/.env.example backend/cabby-gateway/.env
 cp deploy/monitoring/.env.example deploy/monitoring/.env
 # Задайте в deploy/monitoring/.env свой GRAFANA_ADMIN_PASSWORD.
-# При необходимости поменяйте CABBY_GATEWAY_PORT в backend/cabby-gateway/.env.
 ```
 
-Для локального запуска без Docker достаточно первой команды; файл мониторинга нужен для Compose.
+Значения gateway копировать некуда: `make` и Compose читают `backend/cabby-gateway/.env.example`, а локальный `backend/cabby-gateway/.env` создавайте только если ваше значение отличается — оно перекроет пример. Опубликованный на хосте порт берётся из того же `CABBY_GATEWAY_PORT`. Файл мониторинга нужен для Compose: в примере пароль пустой, без него `make docker-up` не разрешит конфигурацию.
 
 ## Локальный запуск без Docker
 
-Для одного gateway достаточно Go 1.26.1 и `backend/cabby-gateway/.env`; Prometheus и Grafana не требуются:
+Для одного gateway достаточно Go 1.26.1: значения берутся из `backend/cabby-gateway/.env.example`; Prometheus и Grafana не требуются:
 
 ```sh
 cd backend/cabby-gateway
