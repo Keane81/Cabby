@@ -1,0 +1,10 @@
+version: v2
+# clean stays off: the output is the module root, so cleaning it would delete
+# go.mod, the Makefile and the proto sources together with the generated code.
+plugins:
+  - local: protoc-gen-go
+    out: .
+    opt: module=github.com/Keane81/Cabby/backend/contracts
+  - local: protoc-gen-go-grpc
+    out: .
+    opt: module=github.com/Keane81/Cabby/backend/contracts
