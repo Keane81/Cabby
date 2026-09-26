@@ -21,7 +21,7 @@ cp deploy/monitoring/.env.example deploy/monitoring/.env
 
 `backend/cabby-gateway/.env` не нужен: `CABBY_GATEWAY_PORT=8082` и `CABBY_AUTH_ADDR=auth:9093` берутся из примера. Для запуска gateway с хоста (`make -C backend/cabby-gateway run`) адрес `auth:9093` не разрешается вне сети compose, поэтому локальный `.env` нужен, если такой запуск входит в ваши проверки: тогда положите в него `CABBY_AUTH_ADDR=127.0.0.1:<порт gRPC>`.
 
-`backend/auth/.env` нужен для того же: `CABBY_AUTH_DB_URL` из примера указывает на `postgres:5432` — имя сервиса внутри сети compose. Для `make -C backend/auth run` или миграций с хоста задайте в локальном `.env` адрес своей PostgreSQL (см. §5). Пароль БД в примере — `change-me`; его же получает контейнер `postgres`, поэтому менять его обязательности нет (порт БД наружу не публикуется). Слои читаются целиком: если меняете `CABBY_AUTH_DB_PASSWORD`, меняйте в том же файле и `CABBY_AUTH_DB_URL`, иначе `auth` придёт в `postgres` со старым паролем.
+`backend/auth/.env` нужен для того же: `CABBY_AUTH_DB_URL` из примера указывает на `postgres:5432` — имя сервиса внутри сети compose. Для `make -C backend/auth run` или миграций с хоста задайте в локальном `.env` адрес своей PostgreSQL (см. §3, «auth с хоста»). Пароль БД в примере — `change-me`; его же получает контейнер `postgres`, поэтому менять его обязательности нет (порт БД наружу не публикуется). Слои читаются целиком: если меняете `CABBY_AUTH_DB_PASSWORD`, меняйте в том же файле и `CABBY_AUTH_DB_URL`, иначе `auth` придёт в `postgres` со старым паролем.
 
 `.env` уже игнорируется корневым `.gitignore`; в image он не попадает: `.dockerignore` один на весь монорепозиторий и лежит в корне — контекст сборки image тоже корневой, потому что `go.mod` сервиса заменяет модуль `contracts` путём внутри репозитория (`replace … => ../contracts`).
 
@@ -42,6 +42,34 @@ docker compose logs auth | grep -E 'migrations|listen'
 ```
 
 Миграция `0001_cabber` применяется сама при старте сервиса; PostgreSQL может быть готов позже — старт ждёт его с ограниченной паузой (R-06).
+
+### auth с хоста (без Docker)
+
+Нужен, когда сервис правят и отлаживают под редактором: пересборки image на каждый цикл нет. Отличия от контейнерного прогона — три:
+
+1. **Своя PostgreSQL.** `CABBY_AUTH_DB_URL` из примера указывает на `postgres:5432` — имя сервиса внутри сети compose, с хоста оно не разрешается. Годится тот же scratch-контейнер, что для интеграционных тестов (§5): он на `127.0.0.1:5433`, тогда как `cabby-postgres` наружу порт не публикует (R-05), а на `5432` может стоять чужой сервер. Пароль этого контейнера — тот, что передан в `POSTGRES_PASSWORD` при `docker run`; он не связан с `CABBY_AUTH_DB_PASSWORD` из примера (тот кормит только контейнер `postgres` из compose). Расхождение DSN и пароля роли видно по `failed SASL auth … password authentication failed` (SQLSTATE 28P01) — это не проблема сети; привести роль к значению из `.env` можно на месте: `docker exec -it cabby-auth-pg psql -U auth -d auth -c "alter user auth password '<из .env>'"`.
+2. **Свободные 9093 и 9094.** Порт метрик — константа `metricsAddress` в `internal/config/config.go`, переопределить его нельзя, поэтому второй экземпляр `auth` на хосте не поднимается: процесс из забытого прошлого прогона даёт новому `bind: address already in use` уже после строки `migrations applied`. Проверить и освободить:
+
+   ```bash
+   lsof -nP -iTCP:9093 -sTCP:LISTEN   # и то же для 9094; остановить — kill -TERM <pid>
+   ```
+
+3. **Вне поля зрения стека.** Контейнерный `auth` при этом продолжает работать, и gateway адресует именно его (`auth:9093`): хостовый инстанс в сценариях §4 не участвует, пока gateway тоже не запущен с хоста (`CABBY_AUTH_ADDR=127.0.0.1:9093` и свой `CABBY_GATEWAY_PORT` в `backend/cabby-gateway/.env`). compose-Prometheus метрик хост-процессов (`9091`/`9094`) не собирает — джобы ходят по именам сервисов, так что дашборды §6 этот прогон не покажут.
+
+```bash
+# DSN — локальным .env (слой поверх примера, §2) или аргументом make:
+make -C backend/auth run CABBY_AUTH_DB_URL='postgres://auth:<свой пароль>@127.0.0.1:5433/auth?sslmode=disable'
+# миграции без сервиса: make -C backend/auth migrate ; остановка — Ctrl+C (graceful по SIGTERM)
+```
+
+Зелёное состояние — те же две строки в выводе (`migrations applied`, `auth listening`) и непустой ответ метрик; вызывать операции без gateway можно напрямую по gRPC. Server reflection в сервисе не зарегистрирована, поэтому описание берётся из proto-файла, а `int64` в JSON приходит строкой (`expiresAtUnix`):
+
+```bash
+cd backend/contracts && grpcurl -plaintext -import-path . -proto proto/auth/v1/auth.proto \
+  -d '{"name":"Иван","email":"ivan@example.com","password":"1234"}' \
+  127.0.0.1:9093 auth.v1.AuthService/RegisterCabber
+curl -s 127.0.0.1:9094/metrics | grep '^cabby_auth_'
+```
 
 ## 4. Проверка сценариев
 
