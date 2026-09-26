@@ -1,10 +1,16 @@
 FROM golang:1.26.1-alpine AS build
 
+# The build context is the repository root: this module replaces the contracts module with a path
+# (`replace … => ../contracts`), so both trees have to be present for `go mod download` to read the
+# requirements and for the compile to find the generated code.
 WORKDIR /src
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=0 go build -trimpath -o /cabby-gateway ./cmd/cabby-gateway
+COPY backend/contracts/go.mod backend/contracts/go.sum ./backend/contracts/
+COPY backend/cabby-gateway/go.mod backend/cabby-gateway/go.sum ./backend/cabby-gateway/
+RUN cd backend/cabby-gateway && go mod download
+
+COPY backend/contracts/ ./backend/contracts/
+COPY backend/cabby-gateway/ ./backend/cabby-gateway/
+RUN cd backend/cabby-gateway && CGO_ENABLED=0 go build -trimpath -o /cabby-gateway ./cmd/cabby-gateway
 
 FROM scratch
 USER 65532:65532

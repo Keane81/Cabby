@@ -1,12 +1,43 @@
 services:
+  # Each service reads the committed example first and its local .env last, so a value lives in one
+  # place: the example carries the defaults of the compose network, the local file only what differs
+  # on this machine. The same pair feeds the Makefiles, so `make run` and the container agree.
   cabby-gateway:
     build:
-      context: ./backend/cabby-gateway
+      context: .
+      dockerfile: backend/cabby-gateway/Dockerfile
     env_file:
-      - ./backend/cabby-gateway/.env
+      - path: ./backend/cabby-gateway/.env
+        required: false
     ports:
-      - "127.0.0.1:${CABBY_GATEWAY_PORT:-8080}:${CABBY_GATEWAY_PORT:-8080}"
+      - "127.0.0.1:${CABBY_GATEWAY_PORT:?Set CABBY_GATEWAY_PORT in backend/cabby-gateway/.env.example}:${CABBY_GATEWAY_PORT:?Set CABBY_GATEWAY_PORT in backend/cabby-gateway/.env.example}"
     stop_grace_period: 10s
+
+  auth:
+    build:
+      context: .
+      dockerfile: backend/auth/Dockerfile
+    env_file:
+      - path: ./backend/auth/.env.example
+      - path: ./backend/auth/.env
+        required: false
+    depends_on:
+      - postgres
+    # 9093 gRPC and 9094 metrics stay inside the compose network: neither is
+    # published to the host (R-05, R-11).
+    expose:
+      - "9093"
+      - "9094"
+    stop_grace_period: 10s
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: auth
+      POSTGRES_DB: auth
+      POSTGRES_PASSWORD: ${CABBY_AUTH_DB_PASSWORD:?Set CABBY_AUTH_DB_PASSWORD in backend/auth/.env.example}
+    volumes:
+      - auth-data:/var/lib/postgresql
 
   prometheus:
     image: prom/prometheus:v3.14.0
@@ -40,3 +71,4 @@ services:
 volumes:
   prometheus-data:
   grafana-data:
+  auth-data:

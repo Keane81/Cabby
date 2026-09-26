@@ -1,0 +1,21 @@
+# A service image is built from the repository root because its `go.mod` replaces the contracts
+# module with a path inside this monorepo (compose.yaml). Nothing outside `backend/` belongs in a
+# build, and neither does a secret, a VCS artefact or a local tool directory.
+.git
+.DS_Store
+.agents
+.qoder
+.specify
+AGENTS.md
+LICENSE
+Makefile
+compose.yaml
+deploy/
+specs/
+**/.env*
+**/vendor/
+**/*.test
+**/*.out
+**/coverage*
+**/Dockerfile*
+**/.dockerignore
