@@ -1,0 +1,96 @@
+// Контракт аутентификации — пакет auth.v1 сервиса auth (backend/auth).
+//
+// Владелец: сервис auth (принцип I конституции — сервис владеет своей бизнес-областью
+// и данными). cabby-gateway — единственный потребитель в v1 и не имеет доступа к хранилищу
+// сервиса.
+//
+// Канонический файл: backend/contracts/proto/auth/v1/auth.proto (модуль contracts — общий
+// для всех микросервисов). Эталонная копия: specs/003-cabber-auth/contracts/auth.proto.
+// Копии обязаны совпадать байт-в-байт; равенство проверяет
+// TestCanonicalProtoMatchesRepositoryReference.
+//
+// Версионирование: пакет auth.v1. Новые поля и методы — аддитивно (minor),
+// переименование, удаление и изменение семантики существующих полей — несовместимо (major).
+syntax = "proto3";
+
+package auth.v1;
+
+option go_package = "github.com/Keane81/Cabby/backend/contracts/authpb;authpb";
+
+// AuthService — операции учётной записи и доступа каббера. Пакет назван auth.v1, а не
+// cabber.v1: сервис предназначен для аутентификации разных ролей (пассажир, администратор),
+// но в v1 методов для них нет и объём требований остаётся кабберским.
+// Смена и восстановление пароля в v1 сознательно отсутствуют: их нет ни в этом контракте,
+// ни в публичном REST-контракте (FR-026 спецификации 003).
+service AuthService {
+  // Регистрация каббера. Создаёт активную учётную запись, доступ не выдаёт (FR-010).
+  //   INVALID_ARGUMENT + ErrorField — некорректное значение поля (FR-006)
+  //   ALREADY_EXISTS   — email занят (FR-009); атрибуты существующей записи не раскрываются
+  //   UNAVAILABLE      — хранилище недоступно; ложного успеха нет
+  rpc RegisterCabber(RegisterCabberRequest) returns (RegisterCabberResponse);
+
+  // Вход: проверяет учётные данные и открывает подтверждённый доступ (FR-011).
+  //   UNAUTHENTICATED — единый отказ для «email не найден» и «пароль неверен» (FR-012);
+  //                     NOT_FOUND для учётной записи не используется, чтобы отказ нельзя было
+  //                     использовать для перечисления адресов
+  //   INVALID_ARGUMENT + ErrorField — отсутствующие учётные данные
+  //   UNAVAILABLE — хранилище недоступно
+  rpc CreateCabberSession(CreateCabberSessionRequest) returns (CreateCabberSessionResponse);
+
+  // Выход: отзывает доступ, предъявленный в запросе (FR-019).
+  //   UNAUTHENTICATED — отсутствующий, отозванный или истёкший токен; повторный отзыв
+  //                     попадает сюда же (FR-021), ложного успеха нет
+  //   UNAVAILABLE — хранилище недоступно
+  rpc DeleteCabberSession(DeleteCabberSessionRequest) returns (DeleteCabberSessionResponse);
+}
+
+message RegisterCabberRequest {
+  // Отображаемое имя каббера. 1..64 символа (R-08).
+  string name = 1;
+  // Email в форме, полученной от клиента; канонизацию (trim, нижний регистр) выполняет
+  // сервис (FR-003). Проверка формата минимальна: ровно один '@' и непустые части (FR-006).
+  string email = 2;
+  // Пароль в открытом виде только в этом запросе: 4..16 символов (FR-006, R-08).
+  string password = 3;
+}
+
+message RegisterCabberResponse {
+  // Идентификатор, назначенный системой и неизменяемый (FR-002). Не является учётными
+  // данными (FR-003) и не принимается ни в одном запросе.
+  string cabber_id = 1;
+  // Канонизированный email созданной учётной записи.
+  string email = 2;
+}
+
+message CreateCabberSessionRequest {
+  string email = 1;
+  string password = 2;
+}
+
+message CreateCabberSessionResponse {
+  // Непрозрачные данные доступа для заголовка Authorization: Bearer (R-04).
+  // В хранилище попадает только их SHA-256 хеш.
+  string access_token = 1;
+  // Абсолютный предел жизни доступа, Unix-секунды: момент создания + 96 часов (FR-013, R-10).
+  // Клиент обязан считать доступ недействительным не позже этого момента; доступ
+  // прекращается и раньше — после 24 часов бездействия.
+  int64 expires_at_unix = 2;
+}
+
+message DeleteCabberSessionRequest {
+  // Тот же токен, что предъявляется в Authorization. Передаётся в теле, а не в metadata,
+  // чтобы место, где секрет появляется на стороне сервиса, было единственным.
+  string access_token = 1;
+}
+
+message DeleteCabberSessionResponse {}
+
+// Уточнение отказа валидации. Перечисляется в google.golang.org/grpc/status.Details().
+// При нескольких недостатках возвращается первый в фиксированном порядке
+// name -> email -> password (edge case спецификации 003).
+message ErrorField {
+  // Имя поля запроса: "name" | "email" | "password".
+  string field = 1;
+  // Стабильный машинный признак: "empty" | "too_long" | "invalid_format" | "too_short".
+  string reason = 2;
+}
