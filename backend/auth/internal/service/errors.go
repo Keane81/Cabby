@@ -9,7 +9,7 @@ var (
 	// account are never part of the failure (FR-009).
 	ErrEmailTaken = errors.New("service: email is taken")
 	// ErrInvalidSession is the single rejection of a credential or a session: unknown email,
-	// wrong password, missing, expired, idle or revoked token, and a second logout alike
+	// wrong password, missing, expired, idle or revoked token, and a second session deletion alike
 	// (FR-012, FR-016, FR-021).
 	ErrInvalidSession = errors.New("service: session is not valid")
 	// ErrDependency reports storage being unreachable. It is deliberately distinguishable from a

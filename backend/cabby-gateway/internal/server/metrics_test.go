@@ -107,12 +107,12 @@ func TestCabberSinksCarryNoValueOfTheRequest(t *testing.T) {
 	}
 	handler := NewRouter(func() bool { return true }, zerolog.New(&logged), metrics, operations)
 	registration := `{"name":"` + cabberName + `","email":"` + leakEmail + `","password":"` + leakPassword + `"}`
-	signIn := `{"email":"` + leakEmail + `","password":"` + leakPassword + `"}`
+	createSessionBody := `{"email":"` + leakEmail + `","password":"` + leakPassword + `"}`
 
 	if created := serveWith(handler, http.MethodPost, pathCabbers, registration); created.Code != http.StatusCreated {
 		t.Fatalf("POST /cabbers = %d: %s", created.Code, created.Body)
 	}
-	opened := serveWith(handler, http.MethodPost, pathCabberSession, signIn)
+	opened := serveWith(handler, http.MethodPost, pathCabberSession, createSessionBody)
 	if opened.Code != http.StatusCreated || !strings.Contains(opened.Body.String(), leakAccess) {
 		t.Fatalf("POST /cabber/session = %d %s, want the access it issued", opened.Code, opened.Body)
 	}
@@ -128,8 +128,8 @@ func TestCabberSinksCarryNoValueOfTheRequest(t *testing.T) {
 		{http.MethodPost, pathCabbers, registration, authclient.ErrEmailTaken},
 		{http.MethodPost, pathCabbers, registration, authclient.Invalid{Field: authclient.FieldPassword, Reason: "too_short"}},
 		{http.MethodPost, pathCabbers, registration, authclient.ErrUnavailable},
-		{http.MethodPost, pathCabberSession, signIn, authclient.ErrUnauthorized},
-		{http.MethodPost, pathCabberSession, signIn, authclient.ErrUnavailable},
+		{http.MethodPost, pathCabberSession, createSessionBody, authclient.ErrUnauthorized},
+		{http.MethodPost, pathCabberSession, createSessionBody, authclient.ErrUnavailable},
 	} {
 		operations.err = failure.err
 		refusal := serveWith(handler, failure.method, failure.path, failure.body)
@@ -139,9 +139,9 @@ func TestCabberSinksCarryNoValueOfTheRequest(t *testing.T) {
 		refusals = append(refusals, refusal.Body.String())
 	}
 	operations.err = authclient.ErrUnauthorized
-	refusals = append(refusals, signOutRequest(t, handler, "Bearer "+leakAccess).Body.String())
+	refusals = append(refusals, deleteSessionRequest(t, handler, "Bearer "+leakAccess).Body.String())
 	operations.err = nil
-	refusals = append(refusals, signOutRequest(t, handler, "Bearer "+leakAccess).Body.String())
+	refusals = append(refusals, deleteSessionRequest(t, handler, "Bearer "+leakAccess).Body.String())
 
 	digest := sha256.Sum256([]byte(leakAccess))
 	values := []string{

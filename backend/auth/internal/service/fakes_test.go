@@ -12,7 +12,7 @@ import (
 )
 
 // cheap is the least expensive set of Argon2id parameters the parser accepts. Registration and
-// sign-in cases derive keys, and R-07 bounds the parameters of production accounts, not of the
+// session creation cases derive keys, and R-07 bounds the parameters of production accounts, not of the
 // fixtures that read them back.
 var cheap = password.Params{Memory: 16, Time: 1, Threads: 1, KeyLen: 32, SaltLen: 16}
 
@@ -176,7 +176,7 @@ func (f *fakeSessions) purge(before time.Time) int64 {
 }
 
 // store keeps a row of the given owner under the digest of a token, exactly as a successful
-// login would have written it.
+// session creation would have written it.
 func (f *fakeSessions) store(cabberID string, digest []byte, created, seenAt time.Time) repo.Session {
 	session := repo.Session{
 		ID:         "session-" + strconv.Itoa(len(f.stored)+1),

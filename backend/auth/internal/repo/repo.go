@@ -55,7 +55,7 @@ type SessionRepository interface {
 	// reporting window; the result reports whether a row was written.
 	Touch(ctx context.Context, id string, seenAt time.Time) (bool, error)
 	// Revoke stamps revoked_at on a still-active access. A false result means the session was
-	// already revoked or unknown, which keeps a second logout from reporting success (FR-021).
+	// already revoked or unknown, which keeps a second session deletion from reporting success (FR-021).
 	Revoke(ctx context.Context, digest []byte, revokedAt time.Time) (bool, error)
 	// PurgeExpired deletes sessions whose absolute limit or revocation lies before the cutoff
 	// (R-10) and reports how many rows went. A live access never matches, and no statement of the

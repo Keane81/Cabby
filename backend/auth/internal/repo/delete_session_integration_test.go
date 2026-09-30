@@ -10,18 +10,18 @@ import (
 	"github.com/Keane81/Cabby/backend/auth/internal/repo"
 )
 
-// TestLogoutFlowTouchesOnlyThePresentedAccess runs the statements of a logout in the order the case
+// TestDeleteSessionFlowTouchesOnlyThePresentedAccess runs the statements of a session deletion in the order the case
 // issues them — read, report, revoke — against PostgreSQL, and then reads the two rows the way the
 // next request would. Only the presented access changes state: the other one of the same cabber is
 // still live, still unread as revoked, and reports its own timestamps (FR-014, FR-019).
-func TestLogoutFlowTouchesOnlyThePresentedAccess(t *testing.T) {
+func TestDeleteSessionFlowTouchesOnlyThePresentedAccess(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)
 	sessions := repo.NewSessions(pool)
 	cabberID := owner(t, ctx, pool)
 
-	presented := []byte("logout-flow-presented")
-	alongside := []byte("logout-flow-alongside")
+	presented := []byte("delete-session-flow-presented")
+	alongside := []byte("delete-session-flow-alongside")
 	for _, digest := range [][]byte{presented, alongside} {
 		if err := sessions.Create(ctx, sessionFor(cabberID, digest)); err != nil {
 			t.Fatalf("Create session: %v", err)
@@ -57,7 +57,7 @@ func TestLogoutFlowTouchesOnlyThePresentedAccess(t *testing.T) {
 		t.Errorf("revoked_at = %v, want %v", after.RevokedAt, revokedAt)
 	}
 
-	// A second logout reads the same row and revokes nothing: FR-021 forbids the false success a
+	// A second session deletion reads the same row and revokes nothing: FR-021 forbids the false success a
 	// client could mistake for a fresh exit.
 	again, err := sessions.Revoke(ctx, presented, revokedAt.Add(time.Minute))
 	if err != nil || again {

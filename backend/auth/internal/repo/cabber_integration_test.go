@@ -51,7 +51,7 @@ func TestEmailIsUnique(t *testing.T) {
 }
 
 // TestTakenEmailStaysTaken covers FR-027: the address does not free up when its owner can no
-// longer sign in, because nothing in v1 removes an account.
+// longer create a session, because nothing in v1 removes an account.
 func TestTakenEmailStaysTaken(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)

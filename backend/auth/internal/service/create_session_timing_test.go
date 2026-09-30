@@ -15,12 +15,12 @@ import (
 // derivation, so the count stays low; a median of them is still stable enough to compare two paths.
 const timingSamples = 9
 
-// TestLoginAnswerTimeDoesNotRevealAnAccount is SC-006 on the mechanism behind it: a sign-in for an
+// TestCreateSessionAnswerTimeDoesNotRevealAnAccount is SC-006 on the mechanism behind it: a session creation for an
 // address nobody owns runs a derivation against decoyHash, so both refusals are one measurement of
 // one derivation. The bound is a factor rather than a duration, because the assertion is about the
 // two medians matching; the lower bound proves the production cost was really paid, which is the
 // only reason they match at all.
-func TestLoginAnswerTimeDoesNotRevealAnAccount(t *testing.T) {
+func TestCreateSessionAnswerTimeDoesNotRevealAnAccount(t *testing.T) {
 	ctx := context.Background()
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := New(cabbers, sessions, password.Default, zerolog.Nop(), time.Now)
@@ -48,16 +48,16 @@ func TestLoginAnswerTimeDoesNotRevealAnAccount(t *testing.T) {
 	}
 }
 
-// refuseIn times a sign-in that has to be refused, and checks it was refused for the reason the
-// test intended: measuring the duration of an accepted login would prove nothing.
+// refuseIn times a session creation that has to be refused, and checks it was refused for the reason the
+// test intended: measuring the duration of an accepted session creation would prove nothing.
 func refuseIn(ctx context.Context, t *testing.T, service *Service, email, plain string) time.Duration {
 	t.Helper()
 	started := time.Now()
-	_, err := service.Login(ctx, email, plain)
+	_, err := service.CreateSession(ctx, email, plain)
 	elapsed := time.Since(started)
 
 	if !errors.Is(err, ErrInvalidSession) {
-		t.Fatalf("Login(%q) = %v, want ErrInvalidSession", email, err)
+		t.Fatalf("CreateSession(%q) = %v, want ErrInvalidSession", email, err)
 	}
 	return elapsed
 }

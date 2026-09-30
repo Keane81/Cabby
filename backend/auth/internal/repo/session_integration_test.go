@@ -85,7 +85,7 @@ func TestRevokingOneAccessLeavesTheOtherAlone(t *testing.T) {
 }
 
 // TestSecondRevokeReportsNothing covers FR-021 at the SQL level: no rows, therefore no
-// success a client could mistake for a fresh logout.
+// success a client could mistake for a fresh session deletion.
 func TestSecondRevokeReportsNothing(t *testing.T) {
 	ctx := context.Background()
 	pool := testPool(t)

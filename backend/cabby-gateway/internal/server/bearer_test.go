@@ -118,7 +118,7 @@ func TestBearerAccessTravelsToTheOperation(t *testing.T) {
 }
 
 // TestBearerDependencyStaysSeparable keeps a rejection of the dependency out of the access
-// failure: an unreachable service is not a demand to sign in again (edge case «Отказ хранилища»).
+// failure: an unreachable service is not a demand to create a session again (edge case «Отказ хранилища»).
 func TestBearerDependencyStaysSeparable(t *testing.T) {
 	operations := &stubOperations{err: authclient.ErrUnavailable}
 	response := httptest.NewRecorder()

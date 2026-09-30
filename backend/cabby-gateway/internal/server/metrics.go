@@ -11,12 +11,12 @@ import (
 // Operations and outcomes of the cabber counters (R-11). Both label sets are closed: a request can
 // only add a value from these lists, so no request data ever reaches a metric name.
 const (
-	operationRegister = "register"
-	operationLogin    = "login"
-	operationLogout   = "logout"
+	operationRegister      = "register"
+	operationCreateSession = "create_session"
+	operationDeleteSession = "delete_session"
 )
 
-var cabberOperations = []string{operationRegister, operationLogin, operationLogout}
+var cabberOperations = []string{operationRegister, operationCreateSession, operationDeleteSession}
 
 const (
 	outcomeSuccess      = "success"

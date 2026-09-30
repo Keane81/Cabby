@@ -12,7 +12,7 @@ import (
 	"github.com/Keane81/Cabby/backend/auth/internal/token"
 )
 
-func TestLoginOpensAnAccessOfTheInjectedMoment(t *testing.T) {
+func TestCreateSessionOpensAnAccessOfTheInjectedMoment(t *testing.T) {
 	ctx := context.Background()
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := newCaseService(cabbers, sessions)
@@ -21,12 +21,12 @@ func TestLoginOpensAnAccessOfTheInjectedMoment(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 
-	access, err := service.Login(ctx, " IVAN@EXAMPLE.COM ", testPlain)
+	access, err := service.CreateSession(ctx, " IVAN@EXAMPLE.COM ", testPlain)
 	if err != nil {
-		t.Fatalf("Login: %v", err)
+		t.Fatalf("CreateSession: %v", err)
 	}
 	if access.Token == "" {
-		t.Fatal("login returned an empty access")
+		t.Fatal("session creation returned an empty access")
 	}
 	if want := fixedNow.Add(sessionLifetime); !access.ExpiresAt.Equal(want) {
 		t.Errorf("expires_at = %s, want %s", access.ExpiresAt, want)
@@ -54,9 +54,9 @@ func TestLoginOpensAnAccessOfTheInjectedMoment(t *testing.T) {
 	}
 }
 
-// TestLoginRejectsBothCausesWithTheSameAnswer is SC-006: neither of the two failures may be
+// TestCreateSessionRejectsBothCausesWithTheSameAnswer is SC-006: neither of the two failures may be
 // distinguishable, so an attacker cannot list registered addresses (FR-012).
-func TestLoginRejectsBothCausesWithTheSameAnswer(t *testing.T) {
+func TestCreateSessionRejectsBothCausesWithTheSameAnswer(t *testing.T) {
 	ctx := context.Background()
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := newCaseService(cabbers, sessions)
@@ -64,24 +64,24 @@ func TestLoginRejectsBothCausesWithTheSameAnswer(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 
-	unknown, err := service.Login(ctx, "nobody@example.com", testPlain)
+	unknown, err := service.CreateSession(ctx, "nobody@example.com", testPlain)
 	if !errors.Is(err, ErrInvalidSession) {
 		t.Fatalf("unknown email error = %v, want ErrInvalidSession", err)
 	}
-	wrong, err := service.Login(ctx, testEmail, decoyPlain)
+	wrong, err := service.CreateSession(ctx, testEmail, decoyPlain)
 	if !errors.Is(err, ErrInvalidSession) {
 		t.Fatalf("wrong password error = %v, want ErrInvalidSession", err)
 	}
 	if unknown != (Session{}) || wrong != (Session{}) {
-		t.Error("a rejected sign-in returned a session")
+		t.Error("a rejected session creation returned a session")
 	}
 	// A rejection must not spend a credential: no row was written for either cause.
 	if len(sessions.created) != 0 {
-		t.Errorf("rejected sign-ins created %d sessions, want none", len(sessions.created))
+		t.Errorf("rejected session creations created %d sessions, want none", len(sessions.created))
 	}
 }
 
-// TestDecoyIsACostlyVerifiableHash guards the mechanism behind SC-006: a sign-in for an address
+// TestDecoyIsACostlyVerifiableHash guards the mechanism behind SC-006: a session creation for an address
 // nobody owns still runs a derivation, and that derivation has to be parseable and as expensive
 // as the one a real account gets, or the answer time reports which emails are registered.
 func TestDecoyIsACostlyVerifiableHash(t *testing.T) {
@@ -94,9 +94,9 @@ func TestDecoyIsACostlyVerifiableHash(t *testing.T) {
 	}
 }
 
-// TestLoginIssuesIndependentAccesses is FR-014: two sign-ins of one cabber give two credentials
+// TestCreateSessionIssuesIndependentAccesses is FR-014: two session creations of one cabber give two credentials
 // that expire and revoke separately.
-func TestLoginIssuesIndependentAccesses(t *testing.T) {
+func TestCreateSessionIssuesIndependentAccesses(t *testing.T) {
 	ctx := context.Background()
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := newCaseService(cabbers, sessions)
@@ -104,26 +104,26 @@ func TestLoginIssuesIndependentAccesses(t *testing.T) {
 		t.Fatalf("Register: %v", err)
 	}
 
-	first, err := service.Login(ctx, testEmail, testPlain)
+	first, err := service.CreateSession(ctx, testEmail, testPlain)
 	if err != nil {
-		t.Fatalf("first Login: %v", err)
+		t.Fatalf("first CreateSession: %v", err)
 	}
-	second, err := service.Login(ctx, testEmail, testPlain)
+	second, err := service.CreateSession(ctx, testEmail, testPlain)
 	if err != nil {
-		t.Fatalf("second Login: %v", err)
+		t.Fatalf("second CreateSession: %v", err)
 	}
 	if first.Token == second.Token {
-		t.Fatal("two sign-ins issued the same access")
+		t.Fatal("two session creations issued the same access")
 	}
 	if len(sessions.created) != 2 {
 		t.Fatalf("stored sessions = %d, want two", len(sessions.created))
 	}
 	if token.Equal(sessions.created[0].TokenHash, sessions.created[1].TokenHash) {
-		t.Error("two sign-ins stored the same digest")
+		t.Error("two session creations stored the same digest")
 	}
 }
 
-func TestLoginReportsStorageAsDependency(t *testing.T) {
+func TestCreateSessionReportsStorageAsDependency(t *testing.T) {
 	for _, tc := range []struct {
 		desc  string
 		guard func(cabbers *fakeCabbers, sessions *fakeSessions, hash string)
@@ -143,9 +143,9 @@ func TestLoginReportsStorageAsDependency(t *testing.T) {
 		stored := cabbers.stored[testEmail]
 		tc.guard(cabbers, sessions, stored.PasswordHash)
 
-		_, err := service.Login(context.Background(), testEmail, testPlain)
+		_, err := service.CreateSession(context.Background(), testEmail, testPlain)
 		if !errors.Is(err, ErrDependency) {
-			t.Errorf("%s: Login error = %v, want ErrDependency", tc.desc, err)
+			t.Errorf("%s: CreateSession error = %v, want ErrDependency", tc.desc, err)
 			continue
 		}
 		if errors.Is(err, ErrInvalidSession) {
@@ -161,9 +161,9 @@ func TestLoginReportsStorageAsDependency(t *testing.T) {
 	}
 }
 
-// TestLoginGuardsOnlyPresenceAndSize keeps the login boundary narrow: the registration limits do
+// TestCreateSessionGuardsOnlyPresenceAndSize keeps the session creation boundary narrow: the registration limits do
 // not reapply here, so a client never gets a second rejection shape to tell apart (FR-012).
-func TestLoginGuardsOnlyPresenceAndSize(t *testing.T) {
+func TestCreateSessionGuardsOnlyPresenceAndSize(t *testing.T) {
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := newCaseService(cabbers, sessions)
 	ctx := context.Background()
@@ -180,11 +180,11 @@ func TestLoginGuardsOnlyPresenceAndSize(t *testing.T) {
 		{"absent password", testEmail, "", FieldPassword, ReasonEmpty},
 		{"password over the limit", testEmail, strings.Repeat("1", MaxPasswordLength+1), FieldPassword, ReasonTooLong},
 	} {
-		_, err := service.Login(ctx, tc.email, tc.plain)
+		_, err := service.CreateSession(ctx, tc.email, tc.plain)
 
 		var defect Validation
 		if !errors.As(err, &defect) {
-			t.Errorf("%s: Login error = %v, want a Validation defect", tc.desc, err)
+			t.Errorf("%s: CreateSession error = %v, want a Validation defect", tc.desc, err)
 			continue
 		}
 		if defect.Field != tc.wantField || defect.Reason != tc.wantReason {
@@ -192,13 +192,13 @@ func TestLoginGuardsOnlyPresenceAndSize(t *testing.T) {
 		}
 	}
 	if len(sessions.created) != 0 || len(cabbers.stored) != 0 {
-		t.Errorf("invalid sign-ins touched storage: %d sessions, %d accounts", len(sessions.created), len(cabbers.stored))
+		t.Errorf("invalid session creations touched storage: %d sessions, %d accounts", len(sessions.created), len(cabbers.stored))
 	}
 }
 
-// TestLoginOfAStoredCabberKeepsNoTraceOfTheCredential repeats the leak guard for the row the
+// TestCreateSessionOfAStoredCabberKeepsNoTraceOfTheCredential repeats the leak guard for the row the
 // service reads back: the returned values of a rejection carry no account data.
-func TestLoginOfAStoredCabberKeepsNoTraceOfTheCredential(t *testing.T) {
+func TestCreateSessionOfAStoredCabberKeepsNoTraceOfTheCredential(t *testing.T) {
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := newCaseService(cabbers, sessions)
 	ctx := context.Background()
@@ -210,9 +210,9 @@ func TestLoginOfAStoredCabberKeepsNoTraceOfTheCredential(t *testing.T) {
 		row = stored
 	}
 
-	_, err := service.Login(ctx, testEmail, "wrong-one")
+	_, err := service.CreateSession(ctx, testEmail, "wrong-one")
 	if err == nil {
-		t.Fatal("Login accepted a password nobody registered")
+		t.Fatal("CreateSession accepted a password nobody registered")
 	}
 	for _, leak := range []string{row.PasswordHash, row.Email, row.Name, testPlain} {
 		if strings.Contains(err.Error(), leak) {

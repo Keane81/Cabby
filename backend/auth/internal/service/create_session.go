@@ -11,7 +11,7 @@ import (
 	"github.com/Keane81/Cabby/backend/auth/internal/token"
 )
 
-// decoyHash is the PHC string a sign-in is checked against when no account owns the address. It
+// decoyHash is the PHC string a session creation is checked against when no account owns the address. It
 // costs exactly what password.Default costs, so the answer time of an unknown address and of a
 // wrong password are the same measurement (SC-006). The address that could ever match it does not
 // exist, and the value is not a credential.
@@ -24,12 +24,12 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
-// Login checks credentials and opens a new access for the cabber who owns them.
+// CreateSession checks credentials and opens a new access for the cabber who owns them.
 //
-// Each sign-in opens a session of its own: a cabber on two devices revokes one of them without
+// Each session creation opens a session of its own: a cabber on two devices revokes one of them without
 // touching the other (FR-014). Both failures — no such account and a wrong password — give back
 // ErrInvalidSession and nothing else, so a refusal cannot tell the two apart (FR-012).
-func (s *Service) Login(ctx context.Context, email, plain string) (Session, error) {
+func (s *Service) CreateSession(ctx context.Context, email, plain string) (Session, error) {
 	canonicalEmail := CanonicalEmail(email)
 	if err := ValidateCredentials(canonicalEmail, plain); err != nil {
 		return Session{}, err

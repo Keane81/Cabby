@@ -6,14 +6,14 @@ import (
 	"github.com/Keane81/Cabby/backend/auth/internal/token"
 )
 
-// Logout revokes the session the request was carried out under and nothing else (FR-019). A cabber
+// DeleteSession revokes the session the request was carried out under and nothing else (FR-019). A cabber
 // signed in on two devices keeps the other access working (FR-014, US3 scenario 4).
 //
 // The revoke decides the answer rather than the check before it: a session another request revoked
 // in the meantime leaves this one with nothing to do, and calling that a success would report a
 // change that never happened (FR-021). Such a request is refused exactly like any request without a
 // confirmed access, and changes no state (SC-007).
-func (s *Service) Logout(ctx context.Context, presented string) error {
+func (s *Service) DeleteSession(ctx context.Context, presented string) error {
 	owner, err := s.Verify(ctx, presented)
 	if err != nil {
 		return err
@@ -25,6 +25,6 @@ func (s *Service) Logout(ctx context.Context, presented string) error {
 	if !revoked {
 		return ErrInvalidSession
 	}
-	s.logger.Info().Str("operation", "logout").Str("cabber_id", owner).Msg("access revoked")
+	s.logger.Info().Str("operation", "delete_session").Str("cabber_id", owner).Msg("session revoked")
 	return nil
 }

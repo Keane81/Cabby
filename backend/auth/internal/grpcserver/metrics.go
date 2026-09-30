@@ -44,7 +44,7 @@ const (
 	querySessionPurge       = "session_purge"
 )
 
-// durationBuckets span the latency budget of the service: the p95 target of a login is 250 ms
+// durationBuckets span the latency budget of the service: the p95 target of a session creation is 250 ms
 // (plan.md) and the deadline of a gateway call is 2 s (R-09), so the last bucket is the point
 // past which a caller has already given up.
 var durationBuckets = []float64{0.05, 0.1, 0.25, 0.5, 1, 2.5}

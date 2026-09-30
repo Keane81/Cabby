@@ -49,20 +49,20 @@ func TestCabberRequestsAreLoggedByOneID(t *testing.T) {
 	}
 }
 
-// TestSignOutLineNamesTheRequestThePortSaw runs the same rule over the path that reads a credential
+// TestDeleteSessionLineNamesTheRequestThePortSaw runs the same rule over the path that reads a credential
 // out of a header instead of a body.
-func TestSignOutLineNamesTheRequestThePortSaw(t *testing.T) {
+func TestDeleteSessionLineNamesTheRequestThePortSaw(t *testing.T) {
 	var logs bytes.Buffer
 	operations := &stubOperations{}
 	handler := routerWith(operations, &logs)
 
-	response := signOutRequest(t, handler, "Bearer "+cabberAccess)
+	response := deleteSessionRequest(t, handler, "Bearer "+cabberAccess)
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("DELETE /cabber/session = %d, want 204", response.Code)
 	}
 	event := loggedEvent(t, &logs)
-	if event["operation"] != operationLogout {
-		t.Errorf("operation = %v, want %q", event["operation"], operationLogout)
+	if event["operation"] != operationDeleteSession {
+		t.Errorf("operation = %v, want %q", event["operation"], operationDeleteSession)
 	}
 	if id := loggedID(t, event); id != operations.sawRequestID {
 		t.Errorf("the operation saw %q, want the identifier of its own line %q", operations.sawRequestID, id)

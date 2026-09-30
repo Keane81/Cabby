@@ -162,7 +162,7 @@ func TestCreateCabberSessionAnswersAnAccess(t *testing.T) {
 	}
 }
 
-// TestCreateCabberSessionRejectsBothCausesAlike is SC-006 at the transport: the two ways a sign-in
+// TestCreateCabberSessionRejectsBothCausesAlike is SC-006 at the transport: the two ways a session creation
 // fails give one answer, byte for byte, and that answer is not NOT_FOUND — which would turn the
 // method into a tool for listing registered addresses (FR-012).
 func TestCreateCabberSessionRejectsBothCausesAlike(t *testing.T) {
@@ -198,7 +198,7 @@ func TestCreateCabberSessionRejectsBothCausesAlike(t *testing.T) {
 		t.Errorf("the two causes answer differently: %v against %v", status.Convert(unknown), status.Convert(wrong))
 	}
 	if len(sessions.created) != 0 {
-		t.Errorf("rejected sign-ins stored %d sessions, want none", len(sessions.created))
+		t.Errorf("rejected session creations stored %d sessions, want none", len(sessions.created))
 	}
 }
 
@@ -209,24 +209,24 @@ func TestStorageFailuresAreUnavailable(t *testing.T) {
 	unreachable := func(text string) error { return errors.New(text) }
 
 	for _, tc := range []struct {
-		desc    string
-		cabbers *memoryCabbers
-		signIn  bool
+		desc          string
+		cabbers       *memoryCabbers
+		createSession bool
 	}{
 		{
 			desc:    "a new account cannot be written",
 			cabbers: &memoryCabbers{rows: map[string]repo.Cabber{}, createErr: unreachable("auth: insert cabber: conn lost")},
 		},
 		{
-			desc:    "the account cannot be read",
-			cabbers: &memoryCabbers{rows: map[string]repo.Cabber{}, findErr: unreachable("auth: select cabber: conn lost")},
-			signIn:  true,
+			desc:          "the account cannot be read",
+			cabbers:       &memoryCabbers{rows: map[string]repo.Cabber{}, findErr: unreachable("auth: select cabber: conn lost")},
+			createSession: true,
 		},
 	} {
 		server := serveWith(t, tc.cabbers, newMemorySessions())
 
 		var err error
-		if tc.signIn {
+		if tc.createSession {
 			_, err = server.CreateCabberSession(ctx, &authpb.CreateCabberSessionRequest{
 				Email: testEmail, Password: testPlain,
 			})
@@ -291,13 +291,13 @@ func TestNoFailureOfTheContractUsesNotFound(t *testing.T) {
 			})
 			return err
 		}()},
-		{"sign-in of an unknown address", func() error {
+		{"session creation of an unknown address", func() error {
 			_, err := server.CreateCabberSession(ctx, &authpb.CreateCabberSessionRequest{
 				Email: otherEmail, Password: testPlain,
 			})
 			return err
 		}()},
-		{"sign-out with an unknown access", func() error {
+		{"session deletion with an unknown access", func() error {
 			_, err := server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{AccessToken: "unknown"})
 			return err
 		}()},
@@ -308,9 +308,9 @@ func TestNoFailureOfTheContractUsesNotFound(t *testing.T) {
 	}
 }
 
-// signInOverTransport opens an account and one access of it through the methods under test, and
+// createSessionOverTransport opens an account and one access of it through the methods under test, and
 // hands back the credential the exit tests need.
-func signInOverTransport(t *testing.T, server *fixture, ctx context.Context) string {
+func createSessionOverTransport(t *testing.T, server *fixture, ctx context.Context) string {
 	t.Helper()
 	if _, err := server.RegisterCabber(ctx, &authpb.RegisterCabberRequest{
 		Name: testName, Email: testEmail, Password: testPlain,
@@ -324,7 +324,7 @@ func signInOverTransport(t *testing.T, server *fixture, ctx context.Context) str
 		t.Fatalf("CreateCabberSession: %v", err)
 	}
 	if answer.GetAccessToken() == "" {
-		t.Fatal("the sign-in answered no access")
+		t.Fatal("the session creation answered no access")
 	}
 	return answer.GetAccessToken()
 }
@@ -335,7 +335,7 @@ func TestDeleteCabberSessionRevokesTheAccessItIsGiven(t *testing.T) {
 	sessions := newMemorySessions()
 	server := serveWith(t, newMemoryCabbers(), sessions)
 	ctx := context.Background()
-	access := signInOverTransport(t, server, ctx)
+	access := createSessionOverTransport(t, server, ctx)
 
 	answer, err := server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{AccessToken: access})
 	if err != nil {
@@ -360,7 +360,7 @@ func TestDeleteCabberSessionRevokesTheAccessItIsGiven(t *testing.T) {
 func TestDeleteCabberSessionRefusesEveryDeadAccessAlike(t *testing.T) {
 	server := serveWith(t, newMemoryCabbers(), newMemorySessions())
 	ctx := context.Background()
-	access := signInOverTransport(t, server, ctx)
+	access := createSessionOverTransport(t, server, ctx)
 	if _, err := server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{AccessToken: access}); err != nil {
 		t.Fatalf("first DeleteCabberSession: %v", err)
 	}
@@ -395,7 +395,7 @@ func TestDeleteCabberSessionReportsStorageAsUnavailable(t *testing.T) {
 	sessions := newMemorySessions()
 	server := serveWith(t, newMemoryCabbers(), sessions)
 	ctx := context.Background()
-	access := signInOverTransport(t, server, ctx)
+	access := createSessionOverTransport(t, server, ctx)
 	sessions.revokeErr = errors.New("auth: update cabber_session: " + string(token.Digest(access)))
 
 	_, err := server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{AccessToken: access})

@@ -61,8 +61,8 @@ func (rt *Router) registerCabber(w http.ResponseWriter, r *http.Request) int {
 	})
 }
 
-// signInCabber answers POST /cabber/session (FR-011, FR-013).
-func (rt *Router) signInCabber(w http.ResponseWriter, r *http.Request) int {
+// createCabberSession answers POST /cabber/session (FR-011, FR-013).
+func (rt *Router) createCabberSession(w http.ResponseWriter, r *http.Request) int {
 	var body cabberSessionRequest
 	if !decodeCabberBody(w, r, &body) {
 		return http.StatusBadRequest
@@ -70,7 +70,7 @@ func (rt *Router) signInCabber(w http.ResponseWriter, r *http.Request) int {
 
 	started := time.Now()
 	session, err := rt.operations.CreateCabberSession(r.Context(), body.Email, body.Password)
-	rt.dependency(operationLogin, started)
+	rt.dependency(operationCreateSession, started)
 	if err != nil {
 		return writeAuthFailure(w, err)
 	}
@@ -80,11 +80,11 @@ func (rt *Router) signInCabber(w http.ResponseWriter, r *http.Request) int {
 	})
 }
 
-// signOutCabber answers DELETE /cabber/session (FR-019). The access comes out of the header and
+// deleteCabberSession answers DELETE /cabber/session (FR-019). The access comes out of the header and
 // nothing else: neither the body nor the URI names the account the exit reaches, so a request cannot
 // claim to sign somebody else out (R-03). A success has no body — 204 says the access is gone, and
 // the client that made it so does not need it repeated back.
-func (rt *Router) signOutCabber(w http.ResponseWriter, r *http.Request) int {
+func (rt *Router) deleteCabberSession(w http.ResponseWriter, r *http.Request) int {
 	access, named := bearerToken(w, r)
 	if !named {
 		return http.StatusUnauthorized
@@ -92,7 +92,7 @@ func (rt *Router) signOutCabber(w http.ResponseWriter, r *http.Request) int {
 
 	started := time.Now()
 	err := rt.operations.DeleteCabberSession(r.Context(), access)
-	rt.dependency(operationLogout, started)
+	rt.dependency(operationDeleteSession, started)
 	if err != nil {
 		return writeAuthFailure(w, err)
 	}

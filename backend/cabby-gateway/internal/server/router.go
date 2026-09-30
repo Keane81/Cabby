@@ -42,8 +42,8 @@ func NewRouter(ready func() bool, logger zerolog.Logger, observer *Metrics, oper
 		serveContract(w)
 	})
 	rt.mux.HandleFunc(http.MethodPost+" "+pathCabbers, rt.counted(operationRegister, rt.registerCabber))
-	rt.mux.HandleFunc(http.MethodPost+" "+pathCabberSession, rt.counted(operationLogin, rt.signInCabber))
-	rt.mux.HandleFunc(http.MethodDelete+" "+pathCabberSession, rt.counted(operationLogout, rt.signOutCabber))
+	rt.mux.HandleFunc(http.MethodPost+" "+pathCabberSession, rt.counted(operationCreateSession, rt.createCabberSession))
+	rt.mux.HandleFunc(http.MethodDelete+" "+pathCabberSession, rt.counted(operationDeleteSession, rt.deleteCabberSession))
 	return rt
 }
 

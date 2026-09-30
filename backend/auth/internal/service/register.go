@@ -10,7 +10,7 @@ import (
 )
 
 // Cabber is the account a registration created. It holds no credential of its own: an account is
-// active from the first second, and reaching it takes a separate sign-in (FR-010).
+// active from the first second, and reaching it takes a separate session creation (FR-010).
 type Cabber struct {
 	ID    string
 	Email string

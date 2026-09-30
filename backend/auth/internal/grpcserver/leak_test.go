@@ -86,7 +86,7 @@ func TestNoSinkOfAuthCarriesAValueOfACall(t *testing.T) {
 		t.Fatalf("CreateCabberSession: %v", err)
 	}
 	if opened.GetAccessToken() == "" {
-		t.Fatal("the sign-in answered no access")
+		t.Fatal("the session creation answered no access")
 	}
 	_, err = server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{
 		AccessToken: opened.GetAccessToken(),

@@ -90,7 +90,7 @@ func TestRegisterCabberAnswersTheAccountItCreated(t *testing.T) {
 	}
 }
 
-func TestSignInCabberAnswersTheAccessAndItsLimit(t *testing.T) {
+func TestCreateCabberSessionAnswersTheAccessAndItsLimit(t *testing.T) {
 	// The service answers in a zone of its own; the contract promises date-time, so the moment
 	// travels in UTC.
 	east := time.FixedZone("UTC+3", 3*60*60)
@@ -231,25 +231,25 @@ func TestCabberRequestsAreCounted(t *testing.T) {
 	serveWith(handler, http.MethodPost, pathCabberSession, `{"unexpected":true}`)
 	operations.err = nil
 	serveWith(handler, http.MethodPost, pathCabbers, `{"name":"Иван","email":"a@b","password":"1234"}`)
-	// A header the gateway cannot read is a request to logout, and a counted one.
-	signOutRequest(t, handler, "")
-	serveDelete := signOutRequest(t, handler, "Bearer opaque-access")
+	// A header the gateway cannot read is a request to session deletion, and a counted one.
+	deleteSessionRequest(t, handler, "")
+	serveDelete := deleteSessionRequest(t, handler, "Bearer opaque-access")
 	if serveDelete.Code != http.StatusNoContent {
-		t.Fatalf("logout = %d, want 204", serveDelete.Code)
+		t.Fatalf("session deletion = %d, want 204", serveDelete.Code)
 	}
 
 	exported := scrape(t, metrics)
 	for _, expected := range []string{
-		`cabby_gateway_cabber_requests_total{operation="login",outcome="success"} 2`,
-		`cabby_gateway_cabber_requests_total{operation="login",outcome="unauthorized"} 1`,
-		`cabby_gateway_cabber_requests_total{operation="login",outcome="rejected"} 1`,
+		`cabby_gateway_cabber_requests_total{operation="create_session",outcome="success"} 2`,
+		`cabby_gateway_cabber_requests_total{operation="create_session",outcome="unauthorized"} 1`,
+		`cabby_gateway_cabber_requests_total{operation="create_session",outcome="rejected"} 1`,
 		`cabby_gateway_cabber_requests_total{operation="register",outcome="success"} 1`,
-		`cabby_gateway_cabber_requests_total{operation="logout",outcome="success"} 1`,
-		`cabby_gateway_cabber_requests_total{operation="logout",outcome="unauthorized"} 1`,
-		`cabby_gateway_cabber_dependency_duration_seconds_count{operation="login"} 3`,
+		`cabby_gateway_cabber_requests_total{operation="delete_session",outcome="success"} 1`,
+		`cabby_gateway_cabber_requests_total{operation="delete_session",outcome="unauthorized"} 1`,
+		`cabby_gateway_cabber_dependency_duration_seconds_count{operation="create_session"} 3`,
 		`cabby_gateway_cabber_dependency_duration_seconds_count{operation="register"} 1`,
-		// Only the logout that reached the service timed a dependency.
-		`cabby_gateway_cabber_dependency_duration_seconds_count{operation="logout"} 1`,
+		// Only the session deletion that reached the service timed a dependency.
+		`cabby_gateway_cabber_dependency_duration_seconds_count{operation="delete_session"} 1`,
 	} {
 		if !strings.Contains(exported, expected) {
 			t.Errorf("missing %q in\n%s", expected, exported)
@@ -259,11 +259,11 @@ func TestCabberRequestsAreCounted(t *testing.T) {
 	assertMetric(t, metrics, "failure", 0)
 }
 
-// TestSignOutAnswersNoContentForTheAccessItClosed is FR-019 on the public port: the exit of a live
+// TestDeleteSessionAnswersNoContentForTheAccessItClosed is FR-019 on the public port: the exit of a live
 // access succeeds with 204 and no body, and the credential it carries is what reaches the service.
-func TestSignOutAnswersNoContentForTheAccessItClosed(t *testing.T) {
+func TestDeleteSessionAnswersNoContentForTheAccessItClosed(t *testing.T) {
 	operations := &stubOperations{}
-	response := signOutRequest(t, routerWith(operations, io.Discard), "Bearer "+cabberAccess)
+	response := deleteSessionRequest(t, routerWith(operations, io.Discard), "Bearer "+cabberAccess)
 
 	if response.Code != http.StatusNoContent {
 		t.Fatalf("status = %d, want 204: %s", response.Code, response.Body)
@@ -276,9 +276,9 @@ func TestSignOutAnswersNoContentForTheAccessItClosed(t *testing.T) {
 	}
 }
 
-// TestSignOutFailuresFollowTheTable is the exit read as data-model §6: a dead access is the single
+// TestDeleteSessionFailuresFollowTheTable is the exit read as data-model §6: a dead access is the single
 // 401 of the contract, an unreachable service stays 503, and no failure repeats the credential.
-func TestSignOutFailuresFollowTheTable(t *testing.T) {
+func TestDeleteSessionFailuresFollowTheTable(t *testing.T) {
 	for _, tc := range []struct {
 		desc     string
 		err      error
@@ -291,7 +291,7 @@ func TestSignOutFailuresFollowTheTable(t *testing.T) {
 		{"the service failed", authclient.ErrInternal, http.StatusInternalServerError, CodeInternalError},
 	} {
 		operations := &stubOperations{err: tc.err}
-		response := signOutRequest(t, routerWith(operations, io.Discard), "Bearer "+cabberAccess)
+		response := deleteSessionRequest(t, routerWith(operations, io.Discard), "Bearer "+cabberAccess)
 
 		if response.Code != tc.wantHTTP {
 			t.Errorf("%s: status = %d, want %d", tc.desc, response.Code, tc.wantHTTP)
@@ -302,16 +302,16 @@ func TestSignOutFailuresFollowTheTable(t *testing.T) {
 	}
 }
 
-// TestSignOutKeepsTheAccessOutOfEverySink is SC-002 and FR-004 on the one path where a client sends
+// TestDeleteSessionKeepsTheAccessOutOfEverySink is SC-002 and FR-004 on the one path where a client sends
 // a live credential: the answer, the log of the request and the exported metrics never carry it, nor
 // the digest of it.
-func TestSignOutKeepsTheAccessOutOfEverySink(t *testing.T) {
+func TestDeleteSessionKeepsTheAccessOutOfEverySink(t *testing.T) {
 	var logged bytes.Buffer
 	metrics := NewMetrics()
 	operations := &stubOperations{err: authclient.ErrUnauthorized}
 	handler := NewRouter(func() bool { return true }, zerolog.New(&logged), metrics, operations)
 
-	response := signOutRequest(t, handler, "Bearer "+cabberAccess)
+	response := deleteSessionRequest(t, handler, "Bearer "+cabberAccess)
 	if response.Code != http.StatusUnauthorized {
 		t.Fatalf("status = %d, want 401", response.Code)
 	}
@@ -336,8 +336,8 @@ func TestSignOutKeepsTheAccessOutOfEverySink(t *testing.T) {
 	}
 }
 
-// signOutRequest sends one DELETE to the session path of a router, with the header the test chose.
-func signOutRequest(t *testing.T, handler http.Handler, authorization string) *httptest.ResponseRecorder {
+// deleteSessionRequest sends one DELETE to the session path of a router, with the header the test chose.
+func deleteSessionRequest(t *testing.T, handler http.Handler, authorization string) *httptest.ResponseRecorder {
 	t.Helper()
 	response := httptest.NewRecorder()
 	request := httptest.NewRequest(http.MethodDelete, pathCabberSession, nil)

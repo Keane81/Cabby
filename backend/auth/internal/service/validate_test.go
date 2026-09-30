@@ -157,6 +157,6 @@ func TestValidateRejectsNULInStoredFields(t *testing.T) {
 		t.Fatalf("registration email with NUL: got %v, want %v", got, want)
 	}
 	if got := ValidateCredentials("a\x00b@example.com", validPlain); got != want {
-		t.Fatalf("sign-in email with NUL: got %v, want %v", got, want)
+		t.Fatalf("session creation email with NUL: got %v, want %v", got, want)
 	}
 }

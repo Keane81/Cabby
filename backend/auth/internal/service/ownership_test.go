@@ -28,7 +28,7 @@ type cabber struct {
 	plain string
 }
 
-func signIn(t *testing.T, name, email, plain string) cabber {
+func registerWithSession(t *testing.T, name, email, plain string) cabber {
 	t.Helper()
 	ctx := context.Background()
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
@@ -38,9 +38,9 @@ func signIn(t *testing.T, name, email, plain string) cabber {
 	if err != nil {
 		t.Fatalf("Register %s: %v", email, err)
 	}
-	issued, err := service.Login(ctx, email, plain)
+	issued, err := service.CreateSession(ctx, email, plain)
 	if err != nil {
-		t.Fatalf("Login %s: %v", email, err)
+		t.Fatalf("CreateSession %s: %v", email, err)
 	}
 	return cabber{service: service, id: created.ID, access: issued.Token, name: name, email: email, plain: plain}
 }
@@ -50,7 +50,7 @@ func signIn(t *testing.T, name, email, plain string) cabber {
 // else, so the caller has no argument through which to put a subject of its own in (consequence
 // R-03): the URI of an operation never decides who acts.
 func TestVerifyAnswersWithItsOwnOwner(t *testing.T) {
-	first, second := signIn(t, testName, testEmail, testPlain), signIn(t, otherName, otherEmail, otherPlain)
+	first, second := registerWithSession(t, testName, testEmail, testPlain), registerWithSession(t, otherName, otherEmail, otherPlain)
 	ctx := context.Background()
 
 	if owner, err := first.service.Verify(ctx, first.access); err != nil || owner != first.id {
@@ -65,7 +65,7 @@ func TestVerifyAnswersWithItsOwnOwner(t *testing.T) {
 // operation of another, is refused in the very same form as a session nobody ever issued. The other
 // access stays valid where it belongs, so the refusal cannot have reported the account behind it.
 func TestAccessOfOneCabberDoesNotReachTheOther(t *testing.T) {
-	first, second := signIn(t, testName, testEmail, testPlain), signIn(t, otherName, otherEmail, otherPlain)
+	first, second := registerWithSession(t, testName, testEmail, testPlain), registerWithSession(t, otherName, otherEmail, otherPlain)
 	ctx := context.Background()
 
 	owner, foreignErr := first.service.Verify(ctx, second.access)
@@ -97,7 +97,7 @@ func TestAccessOfOneCabberDoesNotReachTheOther(t *testing.T) {
 // TestVerifyRefusalNamesNoAccount holds FR-004 and FR-018 on the returned failure: neither
 // account appears in it, nor the credential that was refused.
 func TestVerifyRefusalNamesNoAccount(t *testing.T) {
-	first, second := signIn(t, testName, testEmail, testPlain), signIn(t, otherName, otherEmail, otherPlain)
+	first, second := registerWithSession(t, testName, testEmail, testPlain), registerWithSession(t, otherName, otherEmail, otherPlain)
 
 	_, err := first.service.Verify(context.Background(), second.access)
 	if err == nil {

@@ -50,7 +50,7 @@ func (s *Server) CreateCabberSession(
 	ctx context.Context,
 	req *authpb.CreateCabberSessionRequest,
 ) (*authpb.CreateCabberSessionResponse, error) {
-	session, err := s.service.Login(ctx, req.GetEmail(), req.GetPassword())
+	session, err := s.service.CreateSession(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
 		return nil, toStatus(err)
 	}
@@ -66,7 +66,7 @@ func (s *Server) DeleteCabberSession(
 	ctx context.Context,
 	req *authpb.DeleteCabberSessionRequest,
 ) (*authpb.DeleteCabberSessionResponse, error) {
-	if err := s.service.Logout(ctx, req.GetAccessToken()); err != nil {
+	if err := s.service.DeleteSession(ctx, req.GetAccessToken()); err != nil {
 		return nil, toStatus(err)
 	}
 	return &authpb.DeleteCabberSessionResponse{}, nil
