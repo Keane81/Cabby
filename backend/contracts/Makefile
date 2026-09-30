@@ -1,4 +1,4 @@
-.PHONY: proto test
+.PHONY: proto test test-race vet
 
 GO ?= go
 BUF ?= buf
@@ -8,3 +8,9 @@ proto:
 
 test:
 	$(GO) test ./...
+
+test-race:
+	$(GO) test -race ./...
+
+vet:
+	$(GO) vet ./...

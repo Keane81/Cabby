@@ -1,4 +1,8 @@
-.PHONY: docker-up docker-down docker-ps
+.PHONY: docker-up docker-down docker-ps test test-race vet check
+
+# Backend checks run through backend/Makefile, which covers every module.
+test test-race vet check:
+	$(MAKE) -C backend $@
 
 # Interpolation reads the local .env of each service, the same files the services read through
 # env_file. Only existing files are passed — Compose fails on a missing --env-file.
