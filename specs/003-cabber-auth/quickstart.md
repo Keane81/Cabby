@@ -164,7 +164,7 @@ make -C backend/auth test-integration \
 
 - Prometheus — <http://127.0.0.1:9090/targets>: джобы `cabby-gateway` и `auth` в состоянии `UP`.
 - Grafana — <http://127.0.0.1:3000> (пароль из `deploy/monitoring/.env`), дашборд `cabby-auth accounts` (`deploy/monitoring/grafana/dashboards/auth.json`):
-  - «Cabber operations RPS (gateway)» и «Rejection share by operation» — по `operation ∈ {register, login, logout}`;
+  - «Cabber operations RPS (gateway)» и «Rejection share by operation» — по `operation ∈ {register, create_session, delete_session}`;
   - «Refused accesses per second (brute-force indicator)» — счётчик `unauthorized` как индикатор перебора учётных данных (защиты от перебора в v1 нет, риск зафиксирован в Assumptions);
   - «Gateway to auth delay (p50, p95)» — задержка межсервисного вызова;
   - «Inside auth: request delay (p50, p95)» и «Storage queries failing per second» — где именно теряется время внутри сервиса: задержка самой обработки запроса (`cabby_auth_request_duration_seconds`) и доля отказов запросов к хранилищу (`cabby_auth_repository_query_total{outcome="failure"}` по `query`). Отдельной метрики задержки репозитория R-11 не публикует;

@@ -24,8 +24,8 @@
 
 **Decision**:
 - `POST /cabbers` — регистрация: `{name, email, password}` → `201 {cabber_id, email}`
-- `POST /cabber/session` — вход: `{email, password}` → `201 {access_token, expires_at}`
-- `DELETE /cabber/session` — выход: заголовок `Authorization: Bearer <token>` → `204`
+- `POST /cabber/session` — создание сессии (вход): `{email, password}` → `201 {access_token, expires_at}`
+- `DELETE /cabber/session` — удаление сессии (выход): заголовок `Authorization: Bearer <token>` → `204`
 
 **Rationale**: Соответствие согласованному решению FR-010: регистрация доступ не выдаёт, поэтому вход — отдельный создаваемый ресурс. `expires_at` в ответе входа обязателен, иначе клиент не может подготовиться к обязательному повторному входу (FR-013). Имя пути во множественном числе для коллекции и единственном для подчинённого singleton-ресурса — конвенция из уже существующих ответов (`/healthz`, `/openapi.yaml` новых соглашений не задают).
 
@@ -92,7 +92,7 @@
 ## R-11. Наблюдаемость трёх операций на двух сервисах
 
 **Decision**:
-- `cabby-gateway`: `cabby_gateway_cabber_requests_total{operation,outcome}` и `cabby_gateway_cabber_dependency_duration_seconds{operation}` (гистограмма), где `operation ∈ {register, login, logout}`, `outcome ∈ {success, rejected, unauthorized, unavailable, failure}` — значения фиксированы и не содержат персональных данных.
+- `cabby-gateway`: `cabby_gateway_cabber_requests_total{operation,outcome}` и `cabby_gateway_cabber_dependency_duration_seconds{operation}` (гистограмма), где `operation ∈ {register, create_session, delete_session}`, `outcome ∈ {success, rejected, unauthorized, unavailable, failure}` — значения фиксированы и не содержат персональных данных.
 - `auth`: `cabby_auth_requests_total{method,outcome}` и `cabby_auth_request_duration_seconds{method}`, плюс `cabby_auth_repository_query_total{query,outcome}`.
 - Гистограммы задержки на обеих сторонах используют один и тот же набор границ: `{0.05, 0.1, 0.25, 0.5, 1, 2.5}` с — нижняя граница совпадает с ожидаемой задержкой хеширования, `0.25` — целевой p95 входа (R-07, Performance Goals), `2.5` накрывает дедлайн вызова в 2 с (R-09), поэтому правый «хвост» всегда различим.
 - Логи: `zerolog` в тех же полях, что и в gateway (`operation`, `error_class`), добавляется `request_id`. `email` не логируется даже в маске; токен и пароль не логируются никогда.

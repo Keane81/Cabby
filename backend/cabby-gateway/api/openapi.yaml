@@ -9,8 +9,8 @@ info:
     Scope of this version:
       - health-check (`GET /healthz`) and the cabber account operations
         (`POST /cabbers`, `POST /cabber/session`, `DELETE /cabber/session`).
-      - Registration and sign-in are anonymous; the cabber operations that need
-        a confirmed access send it as `Authorization: Bearer <access_token>`.
+      - Registration and session creation are anonymous; the cabber operations that need
+        a session send its token as `Authorization: Bearer <access_token>`.
       - Password change and recovery, email confirmation, profile read/update
         and deregistration are deliberately absent: they are not part of this
         contract, and calling them yields 404 `unknown_operation`.
@@ -45,7 +45,7 @@ tags:
     description: Liveness/readiness of cabby-gateway for external clients.
   - name: cabber
     description: >-
-      Account of a cabber — registration, sign-in and sign-out.
+      Account of a cabber — registration and the sessions it opens and closes.
   - name: contract
     description: Contract discovery and metadata (not a business operation).
 paths:
@@ -94,7 +94,7 @@ paths:
       description: |
         Open, self-service registration: the account is active immediately, with no
         email confirmation and no operator approval. Registration does not grant
-        access — a cabber signs in with `POST /cabber/session` to obtain one.
+        a session — a cabber creates one with `POST /cabber/session`.
 
         `email` is canonicalised (trimmed and lower-cased) before the uniqueness
         check, so `A@b.com` and `a@b.com` claim the same account. The format check is
@@ -113,7 +113,7 @@ paths:
         '201':
           description: >-
             Account created. The answer carries the assigned identifier and the
-            canonical email; it carries no password and no access data.
+            canonical email; it carries no password and no session data.
           content:
             application/json:
               schema:
@@ -125,7 +125,7 @@ paths:
         '409':
           description: >-
             The email already belongs to an account and is claimed for good: it is
-            never released by inactivity or by a failed sign-in. The attributes of the
+            never released by inactivity or by a failed session creation. The attributes of the
             existing account are not disclosed.
           content:
             application/json:
@@ -139,11 +139,11 @@ paths:
     post:
       tags: [cabber]
       operationId: createCabberSession
-      summary: Sign in and obtain a confirmed access.
+      summary: Create a session and obtain its bearer token.
       description: |
-        Credentials are the canonical email and the password. A successful sign-in
-        opens a new access that is independent of the accesses the cabber already
-        holds: revoking one never affects the others.
+        Credentials are the canonical email and the password. A successful session creation
+        opens a new session that is independent of the sessions the cabber already
+        holds: deleting one never affects the others.
 
         Both failures — no such account and a wrong password — give the same answer:
         HTTP 401 with code `unauthorized`, the same body and the same shape of delay,
@@ -157,7 +157,7 @@ paths:
       responses:
         '201':
           description: >-
-            Access granted. The bearer token is returned once and is never stored or
+            Session created. The bearer token is returned once and is never stored or
             sent in clear by the service.
           content:
             application/json:
@@ -176,23 +176,23 @@ paths:
     delete:
       tags: [cabber]
       operationId: deleteCabberSession
-      summary: Sign out and revoke the access the request presents.
+      summary: Delete the session the request presents.
       description: |
-        The access to revoke is the one in the `Authorization: Bearer` header; the
-        identity of the caller comes from that access and from nothing else. Only the
-        presented access is revoked — the other accesses of the same cabber keep
+        The session to revoke is the one in the `Authorization: Bearer` header; the
+        identity of the caller comes from that session and from nothing else. Only the
+        presented session is revoked — the other sessions of the same cabber keep
         working.
 
         An absent header, an unknown scheme, an empty token, an expired, idle or
-        already revoked access and a repeated sign-out all give the same 401 answer,
-        and none of them revokes anything. A cabber who lost a token signs out by
+        already revoked session and a repeated session deletion all give the same 401 answer,
+        and none of them revokes anything. A cabber who lost a token deletes the session by
         letting it expire.
       security:
         - bearerAccess: []
       responses:
         '204':
           description: >-
-            The access is revoked and cannot be presented again. No body is returned.
+            The session is revoked and cannot be presented again. No body is returned.
         '401':
           $ref: '#/components/responses/Unauthorized'
         '405':
@@ -224,10 +224,10 @@ components:
       type: http
       scheme: bearer
       description: >-
-        The access obtained from `POST /cabber/session`, in the header
+        The session obtained from `POST /cabber/session`, in the header
         `Authorization: Bearer <access_token>`. Only the bearer scheme is accepted; an
         absent header, another scheme and an empty token are rejected with the same 401
-        answer the service gives to an invalid access.
+        answer the service gives to an invalid session.
   responses:
     InvalidRequest:
       description: >-
@@ -248,9 +248,9 @@ components:
             $ref: '#/components/schemas/Error'
     Unauthorized:
       description: >-
-        The credentials or the access are not valid. One answer for every cause — no such
+        The credentials or the session are not valid. One answer for every cause — no such
         account, wrong password, absent or foreign authorization, expired, idle and revoked
-        access, repeated sign-out — so it cannot be used to tell the causes apart.
+        session, repeated session deletion — so it cannot be used to tell the causes apart.
       content:
         application/json:
           schema:
@@ -331,7 +331,7 @@ components:
     CabberSessionRequest:
       type: object
       description: >-
-        Credentials for signing in. The password is compared with the stored hash; the
+        Credentials for creating a session. The password is compared with the stored hash; the
         registration length limits are not rechecked here, so only an absent or absurdly
         long value is a 400.
       required: [email, password]
@@ -348,7 +348,7 @@ components:
           maxLength: 16
     CabberSession:
       type: object
-      description: A confirmed access opened by a successful sign-in.
+      description: A session opened by a successful session creation.
       required: [access_token, expires_at]
       additionalProperties: false
       properties:
@@ -361,9 +361,9 @@ components:
           type: string
           format: date-time
           description: >-
-            Absolute limit of the access, at most 96 hours after it was opened. An access
+            Absolute limit of the session, at most 96 hours after it was opened. A session
             also ends after 24 hours without use and the moment it is revoked, so a client
-            treats 401 as the signal to sign in again.
+            treats 401 as the signal to create a new session.
     Error:
       type: object
       description: >-
