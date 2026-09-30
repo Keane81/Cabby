@@ -15,11 +15,12 @@
 
 ```sh
 cp backend/cabby-gateway/.env.example backend/cabby-gateway/.env
+cp backend/auth/.env.example backend/auth/.env
 cp deploy/monitoring/.env.example deploy/monitoring/.env
 # Задайте в deploy/monitoring/.env свой GRAFANA_ADMIN_PASSWORD.
 ```
 
-Локальный `backend/cabby-gateway/.env` обязателен: и `make`-цели gateway, и `env_file` в `compose.yaml` читают только его, а не `.env.example`. Без него gateway не запустится (`CABBY_AUTH_ADDR is not set`). Опубликованный на хосте порт берётся из того же `CABBY_GATEWAY_PORT`. Файл мониторинга нужен для Compose: в примере пароль пустой, без него `make docker-up` не разрешит конфигурацию.
+Локальные `.env` сервисов (`backend/cabby-gateway/.env`, `backend/auth/.env`) обязательны: `env_file` в `compose.yaml` и `make`-цели читают только их, а не `.env.example`. Опубликованный на хосте порт берётся из того же `CABBY_GATEWAY_PORT`. Файл мониторинга нужен, чтобы задать пароль Grafana: в примере он пустой, и без своего значения Grafana оставит пароль администратора по умолчанию.
 
 ## Локальный запуск без Docker
 
