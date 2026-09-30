@@ -102,25 +102,27 @@ func (rt *Router) signOutCabber(w http.ResponseWriter, r *http.Request) int {
 
 // counted records the answer of one cabber operation. A request a body never reached the auth
 // service for is still a request to the operation, so the counter covers every path.
-func (rt *Router) counted(operation string, w http.ResponseWriter, r *http.Request, handler cabberHandler) {
-	// The identifier is minted here rather than in the gRPC client: a request the body already
-	// rejected never reaches that client, and its line still has to carry the value the search of
-	// the log is made by.
-	request := r.WithContext(requestid.Into(r.Context(), requestid.New()))
-	status := handler(w, request)
+func (rt *Router) counted(operation string, handler cabberHandler) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// The identifier is minted here rather than in the gRPC client: a request the body already
+		// rejected never reaches that client, and its line still has to carry the value the search of
+		// the log is made by.
+		request := r.WithContext(requestid.Into(r.Context(), requestid.New()))
+		status := handler(w, request)
 
-	event := rt.logger.Info()
-	if status >= http.StatusBadRequest {
-		event = rt.logger.Warn()
-	}
-	// The shape of the line is the one auth writes, and no value of the request is in it (FR-004).
-	event.Str("operation", operation).
-		Str("request_id", requestid.From(request.Context())).
-		Int("status", status).
-		Msg("cabber request")
+		event := rt.logger.Info()
+		if status >= http.StatusBadRequest {
+			event = rt.logger.Warn()
+		}
+		// The shape of the line is the one auth writes, and no value of the request is in it (FR-004).
+		event.Str("operation", operation).
+			Str("request_id", requestid.From(request.Context())).
+			Int("status", status).
+			Msg("cabber request")
 
-	if rt.observer != nil {
-		rt.observer.observeCabber(operation, status)
+		if rt.observer != nil {
+			rt.observer.observeCabber(operation, status)
+		}
 	}
 }
 

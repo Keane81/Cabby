@@ -18,7 +18,7 @@ func TestCabberPathsKeepTheirMethods(t *testing.T) {
 
 	// The access of a cabber is opened by POST and closed by DELETE; nothing else is served on the
 	// path, and Allow says so.
-	sessionMethods := http.MethodPost + ", " + http.MethodDelete
+	sessionMethods := http.MethodDelete + ", " + http.MethodPost // the mux lists methods alphabetically
 	for _, tc := range []struct {
 		method string
 		path   string
