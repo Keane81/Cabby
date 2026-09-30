@@ -13,7 +13,7 @@
 1. **Контракт.** Добавьте операцию в канонический документ `backend/cabby-gateway/api/openapi.yaml` и синхронизируйте проектный эталон `specs/002-gateway-external-contract/contracts/openapi.yaml`. Обе копии должны совпадать байт-в-байт: это проверяет тест `TestCanonicalContractMatchesRepositoryReference`, а соответствие маршрутов роутера контракту — `TestRouterPathsAreDefinedInContract`. Обновите человекочитаемое руководство `specs/002-gateway-external-contract/contracts/external-api.md` и поднимите `info.version` по SemVer (новая операция — аддитивное изменение, minor).
 2. **Bruno-коллекция.** Добавьте запрос в `backend/bruno/cabby-gateway/` (новый `<name>.bru` с `url: {{host}}/<path>` и уникальным `seq`), чтобы эндпоинт можно было проверить вручную во всех окружениях.
 
-Эндпоинт считается готовым только когда код, контракт (обе копии + руководство) и Bruno-коллекция согласованы, а тесты `make test`, `make test-race`, `make vet` в `backend/cabby-gateway` зелёные.
+Эндпоинт считается готовым только когда код, контракт (обе копии + руководство) и Bruno-коллекция согласованы, а `make check` из корня репозитория (`test`, `test-race`, `vet` по всем модулям backend) зелёный.
 
 ## Сообщения коммитов
 

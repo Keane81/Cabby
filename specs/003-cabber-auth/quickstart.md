@@ -131,8 +131,8 @@ docker compose start postgres
 ## 5. Проверки кода
 
 ```bash
-cd backend/auth && make test test-race vet
-cd backend/cabby-gateway   && make test test-race vet   # включает контрактовые тесты
+make check   # из корня: test, test-race и vet по всем модулям backend, включая контрактовые тесты
+# или по одному модулю: cd backend/auth && make test test-race vet
 cd backend/contracts      && go test ./...             # байт-в-байт равенство proto
 ```
 

@@ -77,6 +77,12 @@ backend/
 │   ├── authpb/                        # сгенерированный код (коммитится)
 │   └── contract_parity_test.go        # байт-в-байт против specs/003.../contracts/auth.proto
 │
+├── lifecycle/                         # общий модуль без внешних зависимостей: запуск и совместная остановка листенеров
+│   ├── go.mod                         # module github.com/Keane81/Cabby/backend/lifecycle
+│   └── lifecycle.go                   # Run, HTTP, GRPC: сигнал или упавший листенер останавливает все, общий stop-таймаут
+│
+├── Makefile                           # единая точка: test test-race vet check по всем модулям
+│
 ├── auth/                              # новый Go-модуль: владение данными и доступом каббера
 │   ├── go.mod                         # module github.com/Keane81/Cabby/backend/auth
 │   ├── Makefile                       # run test test-race vet test-integration migrate
@@ -84,7 +90,7 @@ backend/
 │   ├── .env.example                   # CABBY_AUTH_DB_PASSWORD (его читает compose для postgres),
 │   │                                  # CABBY_AUTH_DB_URL, CABBY_AUTH_GRPC_PORT (по умолчанию 9093);
 │   │                                  # порт метрик 9094 — константа кода, переменной нет (R-11)
-│   ├── cmd/auth/main.go               # конфиг, логгер, пул, миграции, gRPC + metrics-листер, graceful stop
+│   ├── cmd/auth/main.go               # конфиг, логгер, пул, миграции; gRPC и metrics запускает lifecycle.Run
 │   ├── internal/
 │   │   ├── config/                    # Load() (Config, error) — env и DSN, валидация на старте
 │   │   ├── service/                   # кейсы: регистрация, открытие/отзыв сессии; проверка полей; Now инъекцией
@@ -97,7 +103,7 @@ backend/
 │
 ├── cabby-gateway/                   # меняется
 │   ├── internal/server/
-│   │   ├── router.go                # 3 новых пути в switch + новый параметр NewRouter
+│   │   ├── router.go                # http.ServeMux с паттернами «METHOD /path»; 404/405 mux-а переписываются в envelope
 │   │   ├── cabber.go                # REST-хендлеры трёх операций, маппинг доменных ошибок в envelope
 │   │   ├── errors.go                # новые коды: invalid_request, unauthorized, email_taken, service_unavailable
 │   │   ├── metrics.go               # counter cabby_gateway_cabber_requests_total + histogram зависимостей
@@ -105,9 +111,10 @@ backend/
 │   ├── internal/authclient/         # новый пакет: порт Operations (RegisterCabber, CreateCabberSession,
 │   │                                  # DeleteCabberSession) и gRPC-адаптер, реализующий его
 │   ├── internal/requestid/          # новый пакет: `request_id` — генерация и перенос через ctx
-│   ├── cmd/cabby-gateway/main.go    # dial к auth по CABBY_AUTH_ADDR, прокидывание в NewRouter
+│   ├── internal/config/             # Load() (Config, error): CABBY_AUTH_ADDR, CABBY_GATEWAY_PORT; порт метрик 9091 — константа
+│   ├── cmd/cabby-gateway/main.go    # dial к auth, прокидывание в NewRouter; листенеры запускает lifecycle.Run
 │   ├── .env.example                 # + CABBY_AUTH_ADDR (в compose: auth:9093)
-│   ├── go.mod                       # + google.golang.org/grpc, + contracts (replace ../contracts)
+│   ├── go.mod                       # + google.golang.org/grpc, + contracts и lifecycle (replace ../contracts, ../lifecycle)
 │   └── api/openapi.yaml             # 1.1.0: paths /cabbers, /cabber/session + схемы и коды ошибок
 │
 ├── bruno/cabby-gateway/             # + registration.bru, login.bru, logout.bru (seq 3, 4, 5)
@@ -123,7 +130,7 @@ Makefile                             # COMPOSE читает env-файлы сл�
 .dockerignore                        # один на весь монорепозиторий: заменяет пофайловые, потому что контекст сборки общий
 ```
 
-**Structure Decision**: сервис называется `auth`, а не `cabber-auth` и не `cabby-auth`, потому что его роль — аутентификация разных субъектов: в v1 это кабберы, в будущем пассажиры и администраторы (решение пользователя от 2026-09-24). Имя не наследует префикс продукта, как `cabby-gateway`: короткое `auth` читается в адресе внутри сети compose (`auth:9093`) и в имени базы, а `CABBY_AUTH_*` в переменных окружения и `cabby_auth_*` в метриках сохраняют префикс — он уже совпадает с конвенцией gateway (`CABBY_GATEWAY_PORT`, `cabby_gateway_health_checks_total`). Требования v1 при этом остаются кабберскими, и методы контракта тоже (`RegisterCabber`, `CreateCabberSession`) — обобщение не вводится раньше, чем появляется второй субъект. Контракт вынесен в отдельный модуль `contracts`, общий для всех микросервисов: обе стороны генерируют код из одного `.proto` и не держат копии, а потребитель не тащит зависимости изготовителя — при контрактах внутри `auth` в граф gateway попали бы `pgx` и `x/crypto/argon2`. Внутри сервиса слои разделены по ответственности: `grpcserver` (транспорт) → `service` (кейсы и проверки) → `repo` (хранилище), криптография и токены вынесены в `password` и `token`, чтобы зависимость от Argon2 и формата PHC не протекала в кейсы. У gateway намеренно не появляется новая архитектура: новый код вставляется в существующий `switch`-роутер и в `internal/server/*`, а gRPC остаётся за портом `Operations` в `internal/authclient`.
+**Structure Decision**: сервис называется `auth`, а не `cabber-auth` и не `cabby-auth`, потому что его роль — аутентификация разных субъектов: в v1 это кабберы, в будущем пассажиры и администраторы (решение пользователя от 2026-09-24). Имя не наследует префикс продукта, как `cabby-gateway`: короткое `auth` читается в адресе внутри сети compose (`auth:9093`) и в имени базы, а `CABBY_AUTH_*` в переменных окружения и `cabby_auth_*` в метриках сохраняют префикс — он уже совпадает с конвенцией gateway (`CABBY_GATEWAY_PORT`, `cabby_gateway_health_checks_total`). Требования v1 при этом остаются кабберскими, и методы контракта тоже (`RegisterCabber`, `CreateCabberSession`) — обобщение не вводится раньше, чем появляется второй субъект. Контракт вынесен в отдельный модуль `contracts`, общий для всех микросервисов: обе стороны генерируют код из одного `.proto` и не держат копии, а потребитель не тащит зависимости изготовителя — при контрактах внутри `auth` в граф gateway попали бы `pgx` и `x/crypto/argon2`. Внутри сервиса слои разделены по ответственности: `grpcserver` (транспорт) → `service` (кейсы и проверки) → `repo` (хранилище), криптография и токены вынесены в `password` и `token`, чтобы зависимость от Argon2 и формата PHC не протекала в кейсы. У gateway намеренно не появляется новая архитектура: новые операции добавляются строками в роутер на `http.ServeMux` и в `internal/server/*`, а gRPC остаётся за портом `Operations` в `internal/authclient`.
 
 ## Поведение при отказах и развёртывание
 
