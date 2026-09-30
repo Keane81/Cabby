@@ -54,7 +54,7 @@ func (m *memoryCabbers) FindByEmail(_ context.Context, email string) (repo.Cabbe
 	return cabber, nil
 }
 
-// memorySessions is a repo.SessionRepository keyed by the digest of an access.
+// memorySessions is a repo.SessionRepository keyed by the digest of a session.
 type memorySessions struct {
 	stored    map[string]repo.Session
 	created   []repo.Session
@@ -105,7 +105,7 @@ func (m *memorySessions) Revoke(_ context.Context, digest []byte, revokedAt time
 	return true, nil
 }
 
-// PurgeExpired honours the delete of repo.Sessions: only an access dead since before the cutoff
+// PurgeExpired honours the delete of repo.Sessions: only a session dead since before the cutoff
 // leaves the map (R-10).
 func (m *memorySessions) PurgeExpired(_ context.Context, before time.Time) (int64, error) {
 	var deleted int64

@@ -25,7 +25,7 @@ type Cabber struct {
 	CreatedAt    time.Time
 }
 
-// Session is a row of the cabber_session table. RevokedAt is the zero time while the access
+// Session is a row of the cabber_session table. RevokedAt is the zero time while the session
 // is live; the table stores NULL there.
 type Session struct {
 	ID         string
@@ -54,10 +54,10 @@ type SessionRepository interface {
 	// Touch moves last_seen_at forward, but only if the stored value is older than the idle
 	// reporting window; the result reports whether a row was written.
 	Touch(ctx context.Context, id string, seenAt time.Time) (bool, error)
-	// Revoke stamps revoked_at on a still-active access. A false result means the access was
+	// Revoke stamps revoked_at on a still-active access. A false result means the session was
 	// already revoked or unknown, which keeps a second logout from reporting success (FR-021).
 	Revoke(ctx context.Context, digest []byte, revokedAt time.Time) (bool, error)
-	// PurgeExpired deletes accesses whose absolute limit or revocation lies before the cutoff
+	// PurgeExpired deletes sessions whose absolute limit or revocation lies before the cutoff
 	// (R-10) and reports how many rows went. A live access never matches, and no statement of the
 	// storage deletes an account: cabber rows are kept for the lifetime of the system (FR-028).
 	PurgeExpired(ctx context.Context, before time.Time) (int64, error)

@@ -133,7 +133,7 @@ func TestPurgeTakesOnlyAccessesDeadPastTheRetention(t *testing.T) {
 
 	before := now()
 	retention := 7 * 24 * time.Hour
-	// sessionFor writes an access of its own moment, so the rows below name their own timestamps.
+	// sessionFor writes a session of its own moment, so the rows below name their own timestamps.
 	insert := func(digest []byte, created time.Time) {
 		if err := sessions.Create(ctx, repo.Session{
 			TokenHash: digest, CabberID: cabberID, CreatedAt: created,

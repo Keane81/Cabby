@@ -45,23 +45,23 @@ func (s *Server) RegisterCabber(
 	}, nil
 }
 
-// CreateCabberSession checks the credentials and opens one access of its own for the caller.
+// CreateCabberSession checks the credentials and opens one session of its own for the caller.
 func (s *Server) CreateCabberSession(
 	ctx context.Context,
 	req *authpb.CreateCabberSessionRequest,
 ) (*authpb.CreateCabberSessionResponse, error) {
-	access, err := s.service.Login(ctx, req.GetEmail(), req.GetPassword())
+	session, err := s.service.Login(ctx, req.GetEmail(), req.GetPassword())
 	if err != nil {
 		return nil, toStatus(err)
 	}
 	return &authpb.CreateCabberSessionResponse{
-		AccessToken:   access.Token,
-		ExpiresAtUnix: access.ExpiresAt.Unix(),
+		AccessToken:   session.Token,
+		ExpiresAtUnix: session.ExpiresAt.Unix(),
 	}, nil
 }
 
-// DeleteCabberSession revokes the access the caller presents. The credential is the only input:
-// the request names no account, because the access is the account (R-03, FR-019).
+// DeleteCabberSession revokes the session the caller presents. The credential is the only input:
+// the request names no account, because the session is the account (R-03, FR-019).
 func (s *Server) DeleteCabberSession(
 	ctx context.Context,
 	req *authpb.DeleteCabberSessionRequest,
@@ -75,11 +75,11 @@ func (s *Server) DeleteCabberSession(
 // Messages are fixed texts of the transport, never a cause: a database message can quote a row
 // value, and neither a status text nor a log line may repeat one (FR-004, data-model §6).
 const (
-	msgInvalidField  = "auth: the request has an invalid field"
-	msgEmailTaken    = "auth: the email is already registered"
-	msgAccessInvalid = "auth: the credentials or the access are not valid"
-	msgStorageGone   = "auth: the account storage is unavailable"
-	msgInternal      = "auth: the request could not be completed"
+	msgInvalidField   = "auth: the request has an invalid field"
+	msgEmailTaken     = "auth: the email is already registered"
+	msgSessionInvalid = "auth: the credentials or the session are not valid"
+	msgStorageGone    = "auth: the account storage is unavailable"
+	msgInternal       = "auth: the request could not be completed"
 )
 
 // toStatus is the one mapping from a case failure to the status the contract defines. A failure
@@ -97,8 +97,8 @@ func toStatus(err error) error {
 	switch {
 	case errors.Is(err, service.ErrEmailTaken):
 		return status.Error(codes.AlreadyExists, msgEmailTaken)
-	case errors.Is(err, service.ErrInvalidAccess):
-		return status.Error(codes.Unauthenticated, msgAccessInvalid)
+	case errors.Is(err, service.ErrInvalidSession):
+		return status.Error(codes.Unauthenticated, msgSessionInvalid)
 	case errors.Is(err, service.ErrDependency):
 		return status.Error(codes.Unavailable, msgStorageGone)
 	default:

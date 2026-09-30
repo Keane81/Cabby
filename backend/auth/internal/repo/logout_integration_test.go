@@ -76,9 +76,9 @@ func TestLogoutFlowTouchesOnlyThePresentedAccess(t *testing.T) {
 		t.Fatalf("GetByDigest(alongside) = %v, %v, want a row", found, err)
 	}
 	if !untouched.RevokedAt.IsZero() {
-		t.Errorf("the access alongside was revoked too: %v", untouched.RevokedAt)
+		t.Errorf("the session alongside was revoked too: %v", untouched.RevokedAt)
 	}
 	if !untouched.LastSeenAt.Equal(before.LastSeenAt) {
-		t.Errorf("the access alongside was written: %v → %v", before.LastSeenAt, untouched.LastSeenAt)
+		t.Errorf("the session alongside was written: %v → %v", before.LastSeenAt, untouched.LastSeenAt)
 	}
 }

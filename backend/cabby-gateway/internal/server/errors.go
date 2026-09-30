@@ -76,7 +76,7 @@ func writeAuthFailure(w http.ResponseWriter, err error) int {
 		return writeErrorOnField(w, http.StatusConflict, CodeEmailTaken,
 			"this email is already registered", string(authclient.FieldEmail))
 	case errors.Is(err, authclient.ErrUnauthorized):
-		return writeInvalidAccess(w)
+		return writeUnauthorized(w)
 	case errors.Is(err, authclient.ErrUnavailable):
 		return writeError(w, http.StatusServiceUnavailable, CodeServiceUnavailable,
 			"the operation cannot be completed right now")
@@ -86,15 +86,15 @@ func writeAuthFailure(w http.ResponseWriter, err error) int {
 	}
 }
 
-// msgInvalidAccess is the one text every rejection of a credential or an access answers with,
+// msgUnauthorized is the one text every rejection of a credential or an access answers with,
 // from a header the gateway cannot read to an access the service does not know (FR-016).
-const msgInvalidAccess = "the credentials or the access are not valid"
+const msgUnauthorized = "the credentials or the access are not valid"
 
-// writeInvalidAccess answers a request whose access cannot be honoured. A client reads the same
+// writeUnauthorized answers a request whose access cannot be honoured. A client reads the same
 // status, code and message whatever the reason was, so the answer cannot be used to tell the
 // states of an access apart (FR-016, FR-018, SC-003).
-func writeInvalidAccess(w http.ResponseWriter) int {
-	return writeError(w, http.StatusUnauthorized, CodeUnauthorized, msgInvalidAccess)
+func writeUnauthorized(w http.ResponseWriter) int {
+	return writeError(w, http.StatusUnauthorized, CodeUnauthorized, msgUnauthorized)
 }
 
 func writeUnknownOperation(w http.ResponseWriter) {

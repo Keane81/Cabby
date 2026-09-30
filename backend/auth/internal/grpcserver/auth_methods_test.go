@@ -147,7 +147,7 @@ func TestCreateCabberSessionAnswersAnAccess(t *testing.T) {
 	if answer.GetAccessToken() == "" {
 		t.Fatal("the answer carries no access")
 	}
-	// FR-013: the access expires 96 hours after it was opened, and the transport passes the
+	// FR-013: the session expires 96 hours after it was opened, and the transport passes the
 	// moment through in Unix seconds — the answer is therefore exact to the second.
 	issued := time.Now().Add(accessLimit)
 	if drift := time.Unix(answer.GetExpiresAtUnix(), 0).Sub(before.Add(accessLimit)); drift < -time.Second || drift > time.Second {
@@ -158,7 +158,7 @@ func TestCreateCabberSessionAnswersAnAccess(t *testing.T) {
 		t.Error("the stored session belongs to nobody")
 	}
 	if token.Equal(stored.TokenHash, []byte(answer.GetAccessToken())) {
-		t.Error("the access itself reached storage instead of its digest")
+		t.Error("the session itself reached storage instead of its digest")
 	}
 }
 
@@ -198,7 +198,7 @@ func TestCreateCabberSessionRejectsBothCausesAlike(t *testing.T) {
 		t.Errorf("the two causes answer differently: %v against %v", status.Convert(unknown), status.Convert(wrong))
 	}
 	if len(sessions.created) != 0 {
-		t.Errorf("rejected sign-ins stored %d accesses, want none", len(sessions.created))
+		t.Errorf("rejected sign-ins stored %d sessions, want none", len(sessions.created))
 	}
 }
 
@@ -242,7 +242,7 @@ func TestStorageFailuresAreUnavailable(t *testing.T) {
 }
 
 // TestAccessCannotBeWrittenIsUnavailable covers the third storage failure: the credentials were
-// right, and the access still could not be opened.
+// right, and the session still could not be opened.
 func TestAccessCannotBeWrittenIsUnavailable(t *testing.T) {
 	cabbers := newMemoryCabbers()
 	server := serveWith(t, cabbers, &memorySessions{
@@ -349,14 +349,14 @@ func TestDeleteCabberSessionRevokesTheAccessItIsGiven(t *testing.T) {
 		t.Fatalf("the revoked access is unreadable: %v, %v", found, err)
 	}
 	if revoked.RevokedAt.IsZero() {
-		t.Error("the access survived the exit it was carried out under")
+		t.Error("the session survived the exit it was carried out under")
 	}
 	server.assertCount(t, `cabby_auth_requests_total{method="DeleteCabberSession",outcome="success"} 1`)
 }
 
 // TestDeleteCabberSessionRefusesEveryDeadAccessAlike is FR-016 and FR-021 at the transport: a
 // credential nobody holds, one already revoked and an absent one all answer one status, in one text,
-// and none of them is NOT_FOUND — which would report what the service knows about accesses.
+// and none of them is NOT_FOUND — which would report what the service knows about sessions.
 func TestDeleteCabberSessionRefusesEveryDeadAccessAlike(t *testing.T) {
 	server := serveWith(t, newMemoryCabbers(), newMemorySessions())
 	ctx := context.Background()
@@ -373,8 +373,8 @@ func TestDeleteCabberSessionRefusesEveryDeadAccessAlike(t *testing.T) {
 		desc string
 		err  error
 	}{
-		{"an access nobody issued", exit("an access nobody issued")},
-		{"the access of the exit just made", exit(access)},
+		{"a session nobody issued", exit("a session nobody issued")},
+		{"the session of the exit just made", exit(access)},
 		{"no credential at all", exit("")},
 	}
 	for _, refusal := range refusals {

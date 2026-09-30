@@ -43,9 +43,9 @@ func TestRegisterReturnsTheAccountAndNoAccess(t *testing.T) {
 	if stored.PasswordHash == "" || stored.PasswordHash == testPlain {
 		t.Errorf("stored hash = %q, want a derivation of the password", stored.PasswordHash)
 	}
-	// Registration never opens an access (FR-010): the cabber signs in separately.
+	// Registration never opens a session (FR-010): the cabber signs in separately.
 	if len(sessions.created) != 0 {
-		t.Errorf("registration created %d accesses, want none", len(sessions.created))
+		t.Errorf("registration created %d sessions, want none", len(sessions.created))
 	}
 }
 

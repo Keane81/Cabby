@@ -56,8 +56,8 @@ func refuseIn(ctx context.Context, t *testing.T, service *Service, email, plain 
 	_, err := service.Login(ctx, email, plain)
 	elapsed := time.Since(started)
 
-	if !errors.Is(err, ErrInvalidAccess) {
-		t.Fatalf("Login(%q) = %v, want ErrInvalidAccess", email, err)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("Login(%q) = %v, want ErrInvalidSession", email, err)
 	}
 	return elapsed
 }

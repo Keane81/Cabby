@@ -45,40 +45,40 @@ func signIn(t *testing.T, name, email, plain string) cabber {
 	return cabber{service: service, id: created.ID, access: issued.Token, name: name, email: email, plain: plain}
 }
 
-// TestRequireCabberAnswersWithItsOwnOwner is FR-015 read the other way: an access names exactly one
-// account, and no request can make it name another. RequireCabber takes a credential and nothing
+// TestVerifyAnswersWithItsOwnOwner is FR-015 read the other way: a session names exactly one
+// account, and no request can make it name another. Verify takes a credential and nothing
 // else, so the caller has no argument through which to put a subject of its own in (consequence
 // R-03): the URI of an operation never decides who acts.
-func TestRequireCabberAnswersWithItsOwnOwner(t *testing.T) {
+func TestVerifyAnswersWithItsOwnOwner(t *testing.T) {
 	first, second := signIn(t, testName, testEmail, testPlain), signIn(t, otherName, otherEmail, otherPlain)
 	ctx := context.Background()
 
-	if owner, err := first.service.RequireCabber(ctx, first.access); err != nil || owner != first.id {
+	if owner, err := first.service.Verify(ctx, first.access); err != nil || owner != first.id {
 		t.Errorf("own access = %q, %v, want %q and no error", owner, err, first.id)
 	}
-	if owner, err := second.service.RequireCabber(ctx, second.access); err != nil || owner != second.id {
+	if owner, err := second.service.Verify(ctx, second.access); err != nil || owner != second.id {
 		t.Errorf("own access = %q, %v, want %q and no error", owner, err, second.id)
 	}
 }
 
 // TestAccessOfOneCabberDoesNotReachTheOther is FR-018: the live access of one account, read by the
-// operation of another, is refused in the very same form as an access nobody ever issued. The other
+// operation of another, is refused in the very same form as a session nobody ever issued. The other
 // access stays valid where it belongs, so the refusal cannot have reported the account behind it.
 func TestAccessOfOneCabberDoesNotReachTheOther(t *testing.T) {
 	first, second := signIn(t, testName, testEmail, testPlain), signIn(t, otherName, otherEmail, otherPlain)
 	ctx := context.Background()
 
-	owner, foreignErr := first.service.RequireCabber(ctx, second.access)
-	if !errors.Is(foreignErr, ErrInvalidAccess) {
-		t.Fatalf("a foreign access = %v, want ErrInvalidAccess", foreignErr)
+	owner, foreignErr := first.service.Verify(ctx, second.access)
+	if !errors.Is(foreignErr, ErrInvalidSession) {
+		t.Fatalf("a foreign access = %v, want ErrInvalidSession", foreignErr)
 	}
 	if owner != "" {
 		t.Errorf("a refused access named an owner: %q", owner)
 	}
 
-	_, unknownErr := first.service.RequireCabber(ctx, "an access nobody issued")
-	if !errors.Is(unknownErr, ErrInvalidAccess) {
-		t.Fatalf("an unknown access = %v, want ErrInvalidAccess", unknownErr)
+	_, unknownErr := first.service.Verify(ctx, "a session nobody issued")
+	if !errors.Is(unknownErr, ErrInvalidSession) {
+		t.Fatalf("an unknown access = %v, want ErrInvalidSession", unknownErr)
 	}
 	// One error value for both, not two that merely read alike: the transport can only report the
 	// one category, and that category cannot be a census of accounts (SC-003).
@@ -86,22 +86,22 @@ func TestAccessOfOneCabberDoesNotReachTheOther(t *testing.T) {
 		t.Errorf("the two refusals differ: %v against %v", foreignErr, unknownErr)
 	}
 
-	if _, err := second.service.RequireCabber(ctx, second.access); err != nil {
+	if _, err := second.service.Verify(ctx, second.access); err != nil {
 		t.Fatalf("the other access stopped working on its own side: %v", err)
 	}
-	if owner, err := first.service.RequireCabber(ctx, first.access); err != nil || owner != first.id {
+	if owner, err := first.service.Verify(ctx, first.access); err != nil || owner != first.id {
 		t.Fatalf("the refused attempt changed the first access: %q, %v", owner, err)
 	}
 }
 
-// TestRequireCabberRefusalNamesNoAccount holds FR-004 and FR-018 on the returned failure: neither
+// TestVerifyRefusalNamesNoAccount holds FR-004 and FR-018 on the returned failure: neither
 // account appears in it, nor the credential that was refused.
-func TestRequireCabberRefusalNamesNoAccount(t *testing.T) {
+func TestVerifyRefusalNamesNoAccount(t *testing.T) {
 	first, second := signIn(t, testName, testEmail, testPlain), signIn(t, otherName, otherEmail, otherPlain)
 
-	_, err := first.service.RequireCabber(context.Background(), second.access)
+	_, err := first.service.Verify(context.Background(), second.access)
 	if err == nil {
-		t.Fatal("an access of another account was accepted")
+		t.Fatal("a session of another account was accepted")
 	}
 	for _, value := range []string{
 		first.id, second.id, first.name, second.name, first.email, second.email,

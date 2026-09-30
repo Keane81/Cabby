@@ -96,7 +96,7 @@ func (s *Sessions) Revoke(ctx context.Context, digest []byte, revokedAt time.Tim
 	return true, nil
 }
 
-// PurgeExpired removes the access rows that have been dead since before the cutoff: past their
+// PurgeExpired removes the session rows that have been dead since before the cutoff: past their
 // absolute limit, or revoked past it. A live access cannot match either branch, and no account row
 // is named by this statement at all (FR-028, R-10).
 func (s *Sessions) PurgeExpired(ctx context.Context, before time.Time) (int64, error) {

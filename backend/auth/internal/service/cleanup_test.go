@@ -9,9 +9,9 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// deadSince is how long ago an access has to have died for the retention to let it go; the rows
+// deadSince is how long ago a session has to have died for the retention to let it go; the rows
 // below are placed relative to it so a change of the constant moves the fixtures with it.
-var deadSince = accessRetention + 24*time.Hour
+var deadSince = sessionRetention + 24*time.Hour
 
 func TestPurgeTakesOnlyAccessesDeadPastTheRetention(t *testing.T) {
 	ctx := context.Background()
@@ -27,9 +27,9 @@ func TestPurgeTakesOnlyAccessesDeadPastTheRetention(t *testing.T) {
 
 	// One row per branch of the retention rule, plus the two it must not reach.
 	longExpired := []byte("digest-expired-long-ago")
-	sessions.store(owner, longExpired, moment.Add(-deadSince).Add(-accessLifetime), moment)
+	sessions.store(owner, longExpired, moment.Add(-deadSince).Add(-sessionLifetime), moment)
 	recentlyExpired := []byte("digest-expired-yesterday")
-	sessions.store(owner, recentlyExpired, moment.Add(-24*time.Hour-accessLifetime), moment)
+	sessions.store(owner, recentlyExpired, moment.Add(-24*time.Hour-sessionLifetime), moment)
 	longRevoked := []byte("digest-revoked-long-ago")
 	revoked := sessions.store(owner, longRevoked, moment.Add(-24*time.Hour), moment)
 	revoked.RevokedAt = moment.Add(-deadSince)
@@ -37,9 +37,9 @@ func TestPurgeTakesOnlyAccessesDeadPastTheRetention(t *testing.T) {
 	alive := []byte("digest-still-valid")
 	sessions.store(owner, alive, moment.Add(-24*time.Hour), moment)
 
-	deleted, err := service.PurgeDeadAccesses(ctx)
+	deleted, err := service.PurgeDeadSessions(ctx)
 	if err != nil {
-		t.Fatalf("PurgeDeadAccesses: %v", err)
+		t.Fatalf("PurgeDeadSessions: %v", err)
 	}
 	if deleted != 2 {
 		t.Errorf("purged %d rows, want the two dead past the retention", deleted)
@@ -56,8 +56,8 @@ func TestPurgeTakesOnlyAccessesDeadPastTheRetention(t *testing.T) {
 	}
 	// The cutoff is the injected clock minus the retention, which is the whole reason the case
 	// takes its time from there (R-10).
-	if cutoff := sessions.purged[0]; !cutoff.Equal(moment.Add(-accessRetention)) {
-		t.Errorf("cutoff = %s, want %s", cutoff, moment.Add(-accessRetention))
+	if cutoff := sessions.purged[0]; !cutoff.Equal(moment.Add(-sessionRetention)) {
+		t.Errorf("cutoff = %s, want %s", cutoff, moment.Add(-sessionRetention))
 	}
 	// FR-028: an account outlives every access of its owner. The storage of a cabber has no delete
 	// at all, so the only thing a purge could do to a row of cabber is leave it.
@@ -68,12 +68,12 @@ func TestPurgeTakesOnlyAccessesDeadPastTheRetention(t *testing.T) {
 	// The same row leaves once the clock carries it past the retention: the purge is a rule about
 	// now, not about the rows it saw last time.
 	moment = moment.Add(7 * 24 * time.Hour)
-	deleted, err = service.PurgeDeadAccesses(ctx)
+	deleted, err = service.PurgeDeadSessions(ctx)
 	if err != nil {
-		t.Fatalf("second PurgeDeadAccesses: %v", err)
+		t.Fatalf("second PurgeDeadSessions: %v", err)
 	}
 	if deleted != 1 {
-		t.Errorf("purged %d rows on the moved clock, want the access that aged past the retention", deleted)
+		t.Errorf("purged %d rows on the moved clock, want the session that aged past the retention", deleted)
 	}
 	if _, found := sessions.stored[string(alive)]; !found {
 		t.Error("the live access left with the dead ones")
@@ -85,14 +85,14 @@ func TestPurgeReportsStorageAsDependency(t *testing.T) {
 	service := newCaseService(cabbers, sessions)
 	sessions.purgeErr = errors.New("auth: delete cabber_session: conn lost")
 
-	deleted, err := service.PurgeDeadAccesses(context.Background())
+	deleted, err := service.PurgeDeadSessions(context.Background())
 	if !errors.Is(err, ErrDependency) {
-		t.Fatalf("PurgeDeadAccesses = %v, want ErrDependency", err)
+		t.Fatalf("PurgeDeadSessions = %v, want ErrDependency", err)
 	}
 	if deleted != 0 {
 		t.Errorf("a failed purge reported %d rows gone", deleted)
 	}
-	if errors.Is(err, ErrInvalidAccess) {
+	if errors.Is(err, ErrInvalidSession) {
 		t.Error("a storage failure was reported as a rejection")
 	}
 }
@@ -101,7 +101,7 @@ func TestRunCleanupPurgesOnEveryTickAndStops(t *testing.T) {
 	cabbers, sessions := newFakeCabbers(), newFakeSessions()
 	service := New(cabbers, sessions, cheap, zerolog.Nop(), func() time.Time { return fixedNow })
 	sessions.store("cabber-1", []byte("digest-for-the-ticker"),
-		fixedNow.Add(-deadSince).Add(-accessLifetime), fixedNow)
+		fixedNow.Add(-deadSince).Add(-sessionLifetime), fixedNow)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	stopped := make(chan struct{})

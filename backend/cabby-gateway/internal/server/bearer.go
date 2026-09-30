@@ -16,7 +16,7 @@ const bearerScheme = "Bearer"
 func bearerToken(w http.ResponseWriter, r *http.Request) (string, bool) {
 	scheme, access, hasAccess := strings.Cut(r.Header.Get("Authorization"), " ")
 	if !hasAccess || !strings.EqualFold(scheme, bearerScheme) || access == "" {
-		writeInvalidAccess(w)
+		writeUnauthorized(w)
 		return "", false
 	}
 	return access, true

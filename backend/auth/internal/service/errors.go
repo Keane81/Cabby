@@ -8,10 +8,10 @@ var (
 	// ErrEmailTaken reports the address is already claimed. The attributes of the existing
 	// account are never part of the failure (FR-009).
 	ErrEmailTaken = errors.New("service: email is taken")
-	// ErrInvalidAccess is the single rejection of a credential or an access: unknown email,
+	// ErrInvalidSession is the single rejection of a credential or a session: unknown email,
 	// wrong password, missing, expired, idle or revoked token, and a second logout alike
 	// (FR-012, FR-016, FR-021).
-	ErrInvalidAccess = errors.New("service: access is not valid")
+	ErrInvalidSession = errors.New("service: session is not valid")
 	// ErrDependency reports storage being unreachable. It is deliberately distinguishable from a
 	// rejection so a client never sees a false success (edge case «Отказ хранилища»). The cause is
 	// never carried: a database message can quote a row value, and neither a returned error nor a

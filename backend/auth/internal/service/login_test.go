@@ -28,7 +28,7 @@ func TestLoginOpensAnAccessOfTheInjectedMoment(t *testing.T) {
 	if access.Token == "" {
 		t.Fatal("login returned an empty access")
 	}
-	if want := fixedNow.Add(accessLifetime); !access.ExpiresAt.Equal(want) {
+	if want := fixedNow.Add(sessionLifetime); !access.ExpiresAt.Equal(want) {
 		t.Errorf("expires_at = %s, want %s", access.ExpiresAt, want)
 	}
 
@@ -39,12 +39,12 @@ func TestLoginOpensAnAccessOfTheInjectedMoment(t *testing.T) {
 	if stored.CreatedAt != fixedNow || stored.LastSeenAt != fixedNow {
 		t.Errorf("session timestamps %s/%s, want both %s", stored.CreatedAt, stored.LastSeenAt, fixedNow)
 	}
-	if !stored.ExpiresAt.Equal(fixedNow.Add(accessLifetime)) {
-		t.Errorf("session expires at %s, want %s", stored.ExpiresAt, fixedNow.Add(accessLifetime))
+	if !stored.ExpiresAt.Equal(fixedNow.Add(sessionLifetime)) {
+		t.Errorf("session expires at %s, want %s", stored.ExpiresAt, fixedNow.Add(sessionLifetime))
 	}
-	// Only the digest of an access reaches storage (R-04).
+	// Only the digest of a session reaches storage (R-04).
 	if string(stored.TokenHash) == access.Token {
-		t.Error("the access itself was stored instead of its digest")
+		t.Error("the session itself was stored instead of its digest")
 	}
 	if !token.Equal(stored.TokenHash, token.Digest(access.Token)) {
 		t.Error("the stored digest does not match the issued access")
@@ -65,19 +65,19 @@ func TestLoginRejectsBothCausesWithTheSameAnswer(t *testing.T) {
 	}
 
 	unknown, err := service.Login(ctx, "nobody@example.com", testPlain)
-	if !errors.Is(err, ErrInvalidAccess) {
-		t.Fatalf("unknown email error = %v, want ErrInvalidAccess", err)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("unknown email error = %v, want ErrInvalidSession", err)
 	}
 	wrong, err := service.Login(ctx, testEmail, decoyPlain)
-	if !errors.Is(err, ErrInvalidAccess) {
-		t.Fatalf("wrong password error = %v, want ErrInvalidAccess", err)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("wrong password error = %v, want ErrInvalidSession", err)
 	}
-	if unknown != (Access{}) || wrong != (Access{}) {
-		t.Error("a rejected sign-in returned an access")
+	if unknown != (Session{}) || wrong != (Session{}) {
+		t.Error("a rejected sign-in returned a session")
 	}
 	// A rejection must not spend a credential: no row was written for either cause.
 	if len(sessions.created) != 0 {
-		t.Errorf("rejected sign-ins created %d accesses, want none", len(sessions.created))
+		t.Errorf("rejected sign-ins created %d sessions, want none", len(sessions.created))
 	}
 }
 
@@ -116,7 +116,7 @@ func TestLoginIssuesIndependentAccesses(t *testing.T) {
 		t.Fatal("two sign-ins issued the same access")
 	}
 	if len(sessions.created) != 2 {
-		t.Fatalf("stored accesses = %d, want two", len(sessions.created))
+		t.Fatalf("stored sessions = %d, want two", len(sessions.created))
 	}
 	if token.Equal(sessions.created[0].TokenHash, sessions.created[1].TokenHash) {
 		t.Error("two sign-ins stored the same digest")
@@ -148,7 +148,7 @@ func TestLoginReportsStorageAsDependency(t *testing.T) {
 			t.Errorf("%s: Login error = %v, want ErrDependency", tc.desc, err)
 			continue
 		}
-		if errors.Is(err, ErrInvalidAccess) {
+		if errors.Is(err, ErrInvalidSession) {
 			t.Errorf("%s: a storage failure was reported as a rejection", tc.desc)
 		}
 		// The message of the database is not ours to repeat: it holds the stored hash above
@@ -192,7 +192,7 @@ func TestLoginGuardsOnlyPresenceAndSize(t *testing.T) {
 		}
 	}
 	if len(sessions.created) != 0 || len(cabbers.stored) != 0 {
-		t.Errorf("invalid sign-ins touched storage: %d accesses, %d accounts", len(sessions.created), len(cabbers.stored))
+		t.Errorf("invalid sign-ins touched storage: %d sessions, %d accounts", len(sessions.created), len(cabbers.stored))
 	}
 }
 
@@ -219,7 +219,7 @@ func TestLoginOfAStoredCabberKeepsNoTraceOfTheCredential(t *testing.T) {
 			t.Errorf("rejection leaks a stored value: %v", err)
 		}
 	}
-	if _, err := service.Verify(ctx, "wrong-one"); !errors.Is(err, ErrInvalidAccess) {
-		t.Errorf("Verify error = %v, want ErrInvalidAccess", err)
+	if _, err := service.Verify(ctx, "wrong-one"); !errors.Is(err, ErrInvalidSession) {
+		t.Errorf("Verify error = %v, want ErrInvalidSession", err)
 	}
 }

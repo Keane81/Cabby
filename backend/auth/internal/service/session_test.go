@@ -39,8 +39,8 @@ func TestVerifyBoundaries(t *testing.T) {
 	}{
 		{"fresh access", fixedNow.Add(-time.Hour), fixedNow.Add(-time.Hour), false, ownerID, false},
 		{"one second before the absolute limit", fixedNow.Add(-95*time.Hour - 59*time.Minute - 59*time.Second), fixedNow, false, ownerID, false},
-		{"at the absolute limit", fixedNow.Add(-accessLifetime), fixedNow, false, "", true},
-		{"past the absolute limit", fixedNow.Add(-accessLifetime - time.Second), fixedNow, false, "", true},
+		{"at the absolute limit", fixedNow.Add(-sessionLifetime), fixedNow, false, "", true},
+		{"past the absolute limit", fixedNow.Add(-sessionLifetime - time.Second), fixedNow, false, "", true},
 		{"one minute before going idle", fixedNow.Add(-30 * time.Hour), fixedNow.Add(-23*time.Hour - 59*time.Minute), false, ownerID, false},
 		{"at the idle limit", fixedNow.Add(-30 * time.Hour), fixedNow.Add(-idleLimit), false, "", true},
 		{"past the idle limit", fixedNow.Add(-30 * time.Hour), fixedNow.Add(-idleLimit - time.Minute), false, "", true},
@@ -57,8 +57,8 @@ func TestVerifyBoundaries(t *testing.T) {
 
 		cabberID, err := service.Verify(context.Background(), presented)
 		if tc.wantCabber == "" {
-			if !errors.Is(err, ErrInvalidAccess) {
-				t.Errorf("%s: Verify = %v, want ErrInvalidAccess", tc.desc, err)
+			if !errors.Is(err, ErrInvalidSession) {
+				t.Errorf("%s: Verify = %v, want ErrInvalidSession", tc.desc, err)
 			}
 			continue
 		}
@@ -76,7 +76,7 @@ func TestEveryRejectionSharesOneForm(t *testing.T) {
 	if _, err := sessions.Revoke(context.Background(), token.Digest("revoked-token"), fixedNow); err != nil {
 		t.Fatalf("revoke the fixture: %v", err)
 	}
-	sessions.store("cabber-2", token.Digest("expired-token"), fixedNow.Add(-accessLifetime-time.Hour), fixedNow)
+	sessions.store("cabber-2", token.Digest("expired-token"), fixedNow.Add(-sessionLifetime-time.Hour), fixedNow)
 	sessions.store("cabber-3", token.Digest("idle-token"), fixedNow.Add(-30*time.Hour), fixedNow.Add(-idleLimit-time.Minute))
 	service := newTestService(sessions)
 
@@ -90,7 +90,7 @@ func TestEveryRejectionSharesOneForm(t *testing.T) {
 		{"idle beyond the limit", "idle-token"},
 	} {
 		err := mustReject(t, service, tc.presented)
-		if err != ErrInvalidAccess {
+		if err != ErrInvalidSession {
 			t.Errorf("%s: the rejection is %v, want exactly the single domain error", tc.desc, err)
 		}
 		if errors.Is(err, ErrDependency) {
@@ -103,7 +103,7 @@ func mustReject(t *testing.T, service *Service, presented string) error {
 	t.Helper()
 	_, err := service.Verify(context.Background(), presented)
 	if err == nil {
-		t.Fatalf("Verify(%q) accepted an access it should reject", presented)
+		t.Fatalf("Verify(%q) accepted a session it should reject", presented)
 	}
 	return err
 }
@@ -161,7 +161,7 @@ func TestVerifyReportsStorageAsDependency(t *testing.T) {
 		if !errors.Is(err, ErrDependency) {
 			t.Errorf("%s: Verify = %v, want ErrDependency", tc.desc, err)
 		}
-		if errors.Is(err, ErrInvalidAccess) {
+		if errors.Is(err, ErrInvalidSession) {
 			t.Errorf("%s: a storage failure was reported as a rejected access", tc.desc)
 		}
 	}
@@ -170,7 +170,7 @@ func TestVerifyReportsStorageAsDependency(t *testing.T) {
 // TestActiveIsTheWholeInvariant pins the three conditions of data-model §2 as one rule so a later
 // edit cannot drop one of them silently.
 func TestActiveIsTheWholeInvariant(t *testing.T) {
-	live := repo.Session{CreatedAt: fixedNow, ExpiresAt: fixedNow.Add(accessLifetime), LastSeenAt: fixedNow}
+	live := repo.Session{CreatedAt: fixedNow, ExpiresAt: fixedNow.Add(sessionLifetime), LastSeenAt: fixedNow}
 	if !active(live, fixedNow) {
 		t.Fatal("a freshly issued access is not active")
 	}

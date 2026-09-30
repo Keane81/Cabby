@@ -1,5 +1,5 @@
 // Package service holds the case logic of the auth service: registration, entry into the
-// system and revocation of an access. It owns the business rules and never the SQL, which
+// system and revocation of a session. It owns the business rules and never the SQL, which
 // stays behind repo, nor the transport shape, which stays in grpcserver.
 package service
 
@@ -21,7 +21,7 @@ const (
 	MaxEmailLength    = 254
 )
 
-// Now is the injected clock. Every rule that reads time — both access limits and the
+// Now is the injected clock. Every rule that reads time — both session limits and the
 // reporting window — goes through it, so boundaries are tested with a substituted value
 // (research R-10).
 type Now func() time.Time

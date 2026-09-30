@@ -158,7 +158,7 @@ func (f *fakeSessions) purgeCalls() int {
 	return len(f.purged)
 }
 
-// purge mirrors the delete of repo.Sessions.PurgeExpired: an access leaves the table once it has
+// purge mirrors the delete of repo.Sessions.PurgeExpired: a session leaves the table once it has
 // been past its absolute limit, or revoked, for longer than the cutoff. The integration test of the
 // repository proves the SQL; the case tests only need a stand-in that honours it.
 func (f *fakeSessions) purge(before time.Time) int64 {
@@ -183,7 +183,7 @@ func (f *fakeSessions) store(cabberID string, digest []byte, created, seenAt tim
 		TokenHash:  digest,
 		CabberID:   cabberID,
 		CreatedAt:  created,
-		ExpiresAt:  created.Add(accessLifetime),
+		ExpiresAt:  created.Add(sessionLifetime),
 		LastSeenAt: seenAt,
 	}
 	f.stored[string(digest)] = session

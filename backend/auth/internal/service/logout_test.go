@@ -12,7 +12,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// logoutFixture is one account with the accesses the test hands out. The clock is a variable
+// logoutFixture is one account with the sessions the test hands out. The clock is a variable
 // rather than a constant because a logout is judged by what it left behind: a second attempt has
 // to be refused at a moment the first one did not write.
 type logoutFixture struct {
@@ -43,12 +43,12 @@ func (f *logoutFixture) enter(t *testing.T) string {
 	return issued.Token
 }
 
-// stored reads back the row behind an access, the way the next request will.
+// stored reads back the row behind a session, the way the next request will.
 func (f *logoutFixture) stored(t *testing.T, access string) repo.Session {
 	t.Helper()
 	session, found, err := f.sessions.GetByDigest(context.Background(), token.Digest(access))
 	if err != nil || !found {
-		t.Fatalf("the access has no row: %v, %v", found, err)
+		t.Fatalf("the session has no row: %v, %v", found, err)
 	}
 	return session
 }
@@ -63,25 +63,25 @@ func TestLogoutRevokesTheAccessItWasGivenAndNoOther(t *testing.T) {
 	if err := fixture.service.Logout(ctx, presented); err != nil {
 		t.Fatalf("Logout: %v", err)
 	}
-	if _, err := fixture.service.RequireCabber(ctx, presented); !errors.Is(err, ErrInvalidAccess) {
-		t.Errorf("the revoked access still opens an operation: %v, want ErrInvalidAccess", err)
+	if _, err := fixture.service.Verify(ctx, presented); !errors.Is(err, ErrInvalidSession) {
+		t.Errorf("the revoked access still opens an operation: %v, want ErrInvalidSession", err)
 	}
-	owner, err := fixture.service.RequireCabber(ctx, alongside)
+	owner, err := fixture.service.Verify(ctx, alongside)
 	if err != nil {
-		t.Errorf("the access alongside stopped working: %v", err)
+		t.Errorf("the session alongside stopped working: %v", err)
 	}
 	if owner == "" {
-		t.Error("the access alongside resolved to no owner")
+		t.Error("the session alongside resolved to no owner")
 	}
 	if row := fixture.stored(t, presented); !row.RevokedAt.Equal(fixture.moment) {
 		t.Errorf("revoked_at = %v, want %v", row.RevokedAt, fixture.moment)
 	}
 	if row := fixture.stored(t, alongside); !row.RevokedAt.IsZero() {
-		t.Errorf("the access alongside carries a revoke: %v", row.RevokedAt)
+		t.Errorf("the session alongside carries a revoke: %v", row.RevokedAt)
 	}
 }
 
-// TestSecondLogoutIsRefusedWithoutAChange is FR-021 and SC-007: the exit of an access that is
+// TestSecondLogoutIsRefusedWithoutAChange is FR-021 and SC-007: the exit of a session that is
 // already gone is refused like any request without a confirmed access, and it neither revokes a
 // second row nor moves the stamp of the first.
 func TestSecondLogoutIsRefusedWithoutAChange(t *testing.T) {
@@ -97,16 +97,16 @@ func TestSecondLogoutIsRefusedWithoutAChange(t *testing.T) {
 	fixture.moment = fixture.moment.Add(time.Hour)
 
 	err := fixture.service.Logout(ctx, access)
-	if !errors.Is(err, ErrInvalidAccess) {
-		t.Fatalf("second Logout = %v, want ErrInvalidAccess", err)
+	if !errors.Is(err, ErrInvalidSession) {
+		t.Fatalf("second Logout = %v, want ErrInvalidSession", err)
 	}
 	// The refusal reads as the refusal of an absent access: one error value, so no client can ask
 	// which of the two states it is in (FR-016, SC-003).
-	if err != ErrInvalidAccess {
+	if err != ErrInvalidSession {
 		t.Errorf("the refusal is a wrapped error: %v", err)
 	}
-	if err := fixture.service.Logout(ctx, "an access nobody issued"); err != ErrInvalidAccess {
-		t.Errorf("an unknown access = %v, want the same ErrInvalidAccess", err)
+	if err := fixture.service.Logout(ctx, "a session nobody issued"); err != ErrInvalidSession {
+		t.Errorf("an unknown access = %v, want the same ErrInvalidSession", err)
 	}
 	if row := fixture.stored(t, access); !row.RevokedAt.Equal(revokedAt) {
 		t.Errorf("the second logout moved revoked_at to %v, want %v", row.RevokedAt, revokedAt)
@@ -134,8 +134,8 @@ func TestLoginAfterLogoutOpensAWorkingAccess(t *testing.T) {
 	if fresh == lost {
 		t.Fatal("the new access is the revoked one")
 	}
-	if owner, err := fixture.service.RequireCabber(ctx, fresh); err != nil || owner == "" {
-		t.Errorf("the access of a repeated sign-in does not work: %q, %v", owner, err)
+	if owner, err := fixture.service.Verify(ctx, fresh); err != nil || owner == "" {
+		t.Errorf("the session of a repeated sign-in does not work: %q, %v", owner, err)
 	}
 }
 
@@ -146,19 +146,19 @@ func TestLogoutOfAnAccessThatCannotBeUsed(t *testing.T) {
 	ctx := context.Background()
 	fixture := newLogoutFixture(t)
 	dead := fixture.enter(t)
-	fixture.moment = fixture.moment.Add(accessLifetime)
+	fixture.moment = fixture.moment.Add(sessionLifetime)
 
 	for _, tc := range []struct {
 		desc   string
 		access string
 	}{
 		{"no credential", ""},
-		{"an access nobody issued", "3j4P5k6L7m8N9o0P"},
-		{"an access past its limit", dead},
+		{"a session nobody issued", "3j4P5k6L7m8N9o0P"},
+		{"a session past its limit", dead},
 	} {
 		err := fixture.service.Logout(ctx, tc.access)
-		if !errors.Is(err, ErrInvalidAccess) {
-			t.Errorf("%s: Logout = %v, want ErrInvalidAccess", tc.desc, err)
+		if !errors.Is(err, ErrInvalidSession) {
+			t.Errorf("%s: Logout = %v, want ErrInvalidSession", tc.desc, err)
 		}
 	}
 	if len(fixture.sessions.revoked) != 0 {
@@ -177,7 +177,7 @@ func TestLogoutReportsStorageAsDependency(t *testing.T) {
 		desc  string
 		guard func(sessions *fakeSessions)
 	}{
-		{"the access cannot be read", func(sessions *fakeSessions) { sessions.getErr = errors.New("auth: select cabber_session: gone") }},
+		{"the session cannot be read", func(sessions *fakeSessions) { sessions.getErr = errors.New("auth: select cabber_session: gone") }},
 		{"the refresh cannot be written", func(sessions *fakeSessions) { sessions.touchErr = errors.New("auth: update cabber_session: gone") }},
 		{"the revoke cannot be written", func(sessions *fakeSessions) { sessions.revokeErr = errors.New("auth: update cabber_session: gone") }},
 	} {
@@ -190,13 +190,13 @@ func TestLogoutReportsStorageAsDependency(t *testing.T) {
 			t.Errorf("%s: Logout = %v, want ErrDependency", tc.desc, err)
 			continue
 		}
-		if errors.Is(err, ErrInvalidAccess) {
+		if errors.Is(err, ErrInvalidSession) {
 			t.Errorf("%s: a storage failure was reported as a rejection", tc.desc)
 		}
 	}
 }
 
-// TestLogoutRefusalCarriesNoCredential is FR-004 on the exit: the access a client handed over is a
+// TestLogoutRefusalCarriesNoCredential is FR-004 on the exit: the session a client handed over is a
 // live credential, so neither a refusal nor a storage failure may repeat it — and a database message
 // can quote the digest it was given.
 func TestLogoutRefusalCarriesNoCredential(t *testing.T) {

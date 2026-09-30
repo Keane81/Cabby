@@ -29,7 +29,7 @@ const (
 // TestNoSinkOfAuthCarriesAValueOfACall is SC-002, FR-004 and FR-025 on the internal interface: after
 // the three operations have answered success and refusal, what the service writes down — its log and
 // its metrics — and what a refusal says, name a request by its method and its outcome and repeat
-// nothing of it: no address, no name, no password, no access, and neither the digest of an access nor
+// nothing of it: no address, no name, no password, no access, and neither the digest of a session nor
 // a derived hash.
 func TestNoSinkOfAuthCarriesAValueOfACall(t *testing.T) {
 	var logs bytes.Buffer
@@ -97,7 +97,7 @@ func TestNoSinkOfAuthCarriesAValueOfACall(t *testing.T) {
 	_, err = server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{
 		AccessToken: opened.GetAccessToken(),
 	})
-	refused("an access already revoked", err)
+	refused("a session already revoked", err)
 
 	if len(refusals) != 5 {
 		t.Fatalf("the run collected %d refusals, want 5", len(refusals))
