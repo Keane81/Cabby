@@ -144,3 +144,19 @@ func TestValidationMessageCarriesNoRequestData(t *testing.T) {
 		t.Errorf("Validation.Error() = %q, contains request data", msg)
 	}
 }
+
+// TestValidateRejectsNULInStoredFields keeps a value PostgreSQL cannot store from reaching it,
+// where it would be reported as an unavailable dependency rather than an invalid field.
+func TestValidateRejectsNULInStoredFields(t *testing.T) {
+	want := Validation{FieldName, ReasonInvalidFormat}
+	if got := ValidateRegistration("a\x00b", validEmail, validPlain); got != want {
+		t.Fatalf("name with NUL: got %v, want %v", got, want)
+	}
+	want = Validation{FieldEmail, ReasonInvalidFormat}
+	if got := ValidateRegistration(validName, "a\x00b@example.com", validPlain); got != want {
+		t.Fatalf("registration email with NUL: got %v, want %v", got, want)
+	}
+	if got := ValidateCredentials("a\x00b@example.com", validPlain); got != want {
+		t.Fatalf("sign-in email with NUL: got %v, want %v", got, want)
+	}
+}

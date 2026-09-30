@@ -25,6 +25,9 @@ func ValidateRegistration(name, email, plain string) error {
 	if err := validateLength(FieldName, name, MinNameLength, MaxNameLength); err != nil {
 		return err
 	}
+	if err := validateStorable(FieldName, name); err != nil {
+		return err
+	}
 	if err := validateEmail(email); err != nil {
 		return err
 	}
@@ -36,6 +39,9 @@ func ValidateRegistration(name, email, plain string) error {
 // client a second rejection to tell apart from the single one of FR-012 (SC-006).
 func ValidateCredentials(email, plain string) error {
 	if err := validateLength(FieldEmail, email, 0, MaxEmailLength); err != nil {
+		return err
+	}
+	if err := validateStorable(FieldEmail, email); err != nil {
 		return err
 	}
 	return validateLength(FieldPassword, plain, 0, MaxPasswordLength)
@@ -53,6 +59,15 @@ func validateEmail(email string) error {
 		return Validation{FieldEmail, ReasonTooLong}
 	case !hasAt || local == "" || domain == "" || strings.Contains(domain, "@"):
 		return Validation{FieldEmail, ReasonInvalidFormat}
+	}
+	return validateStorable(FieldEmail, email)
+}
+
+// validateStorable rejects a NUL character: PostgreSQL text cannot hold one, so it would otherwise
+// fail in storage and be reported as an unavailable dependency instead of an invalid field.
+func validateStorable(field Field, value string) error {
+	if strings.ContainsRune(value, 0) {
+		return Validation{field, ReasonInvalidFormat}
 	}
 	return nil
 }
