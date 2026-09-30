@@ -4,11 +4,10 @@
 # otherwise beat the environment. Integration tests take their DSN only from here.
 TEST_DB_URL := $(CABBY_AUTH_DB_URL)
 
-# The committed example is the base: every value a fresh clone needs, so no target lists names and
-# nothing is copied by hand. A local .env is read last and overrides only what differs on this
-# machine; a value on the make command line overrides both. A bare `export` hands every value to the
-# recipe process.
--include .env.example
+# Only the local .env is read, not the committed example: its DSN names the compose service
+# `postgres`, which resolves only inside the compose network, so a host run needs its own values.
+# Copy .env.example to .env and adjust it before the first `make run`; a value on the make command
+# line overrides the file. A bare `export` hands every value to the recipe process.
 -include .env
 export
 

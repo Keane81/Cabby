@@ -1,17 +1,15 @@
 services:
-  # auth reads the committed example first and its local .env last, so a value lives in one place:
-  # the example carries the defaults of the compose network, the local file only what differs on this
-  # machine. cabby-gateway reads only its local .env, so that file must be a full copy of the example;
-  # the example reaches the gateway only through interpolation of the published port (root Makefile).
+  # Every service reads only its own local .env, copied from the committed .env.example: nothing here
+  # refers to an example. The same files feed the ${...} interpolation below when compose is run
+  # through the root Makefile.
   cabby-gateway:
     build:
       context: .
       dockerfile: backend/cabby-gateway/Dockerfile
     env_file:
-      - path: ./backend/cabby-gateway/.env
-        required: false
+      - ./backend/cabby-gateway/.env
     ports:
-      - "127.0.0.1:${CABBY_GATEWAY_PORT:?Set CABBY_GATEWAY_PORT in backend/cabby-gateway/.env.example}:${CABBY_GATEWAY_PORT:?Set CABBY_GATEWAY_PORT in backend/cabby-gateway/.env.example}"
+      - "127.0.0.1:${CABBY_GATEWAY_PORT:-8080}:${CABBY_GATEWAY_PORT:-8080}"
     stop_grace_period: 10s
 
   auth:
@@ -19,9 +17,7 @@ services:
       context: .
       dockerfile: backend/auth/Dockerfile
     env_file:
-      - path: ./backend/auth/.env.example
-      - path: ./backend/auth/.env
-        required: false
+      - ./backend/auth/.env
     depends_on:
       - postgres
     # 9093 gRPC and 9094 metrics stay inside the compose network: neither is
@@ -36,7 +32,7 @@ services:
     environment:
       POSTGRES_USER: auth
       POSTGRES_DB: auth
-      POSTGRES_PASSWORD: ${CABBY_AUTH_DB_PASSWORD:?Set CABBY_AUTH_DB_PASSWORD in backend/auth/.env.example}
+      POSTGRES_PASSWORD: ${CABBY_AUTH_DB_PASSWORD}
     volumes:
       - auth-data:/var/lib/postgresql
 
@@ -59,7 +55,7 @@ services:
     depends_on:
       - prometheus
     environment:
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?Set GRAFANA_ADMIN_PASSWORD in deploy/monitoring/.env}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
     volumes:
