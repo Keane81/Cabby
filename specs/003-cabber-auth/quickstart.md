@@ -12,14 +12,15 @@
 
 ## 2. Конфигурация
 
-Значения по умолчанию лежат в закоммиченных `.env.example` — их читают и `make`-цели сервиса (`-include .env.example`, затем `-include .env`), и `compose.yaml` (`env_file` с тем же порядком). Перечислять имена в makefile не нужно, копировать пример целиком — тоже. Локальный `.env` обязателен только там, где машинное значение отличается от сетевого:
+Значения по умолчанию лежат в закоммиченных `.env.example`. У `auth` их читают и `make`-цели (`-include .env.example`, затем `-include .env`), и `compose.yaml` (`env_file` с тем же порядком), поэтому локальный `.env` сервиса нужен только там, где машинное значение отличается от сетевого. У `cabby-gateway` слоёв нет: и `make`-цели, и `env_file` в `compose.yaml` читают только локальный `backend/cabby-gateway/.env`, поэтому он обязателен и должен содержать все значения:
 
 ```bash
+cp backend/cabby-gateway/.env.example backend/cabby-gateway/.env
 cp deploy/monitoring/.env.example deploy/monitoring/.env
 # заполнить GRAFANA_ADMIN_PASSWORD — в примере он пустой, без значения compose не поднимется
 ```
 
-`backend/cabby-gateway/.env` не нужен: `CABBY_GATEWAY_PORT=8082` и `CABBY_AUTH_ADDR=auth:9093` берутся из примера. Для запуска gateway с хоста (`make -C backend/cabby-gateway run`) адрес `auth:9093` не разрешается вне сети compose, поэтому локальный `.env` нужен, если такой запуск входит в ваши проверки: тогда положите в него `CABBY_AUTH_ADDR=127.0.0.1:<порт gRPC>`.
+Без `backend/cabby-gateway/.env` compose всё равно поднимется: опубликованный порт подставляется из примера через `--env-file` корневого `Makefile`. Но контейнер gateway не получит `CABBY_AUTH_ADDR` и завершится с `CABBY_AUTH_ADDR is not set`. Копия примера годится для compose как есть (`CABBY_GATEWAY_PORT=8082`, `CABBY_AUTH_ADDR=auth:9093`). Для запуска gateway с хоста (`make -C backend/cabby-gateway run`) адрес `auth:9093` вне сети compose не разрешается: на время такого запуска замените его в `.env` на `CABBY_AUTH_ADDR=127.0.0.1:<порт gRPC>` и верните `auth:9093` перед `make docker-up`, потому что контейнер читает тот же файл.
 
 `backend/auth/.env` нужен для того же: `CABBY_AUTH_DB_URL` из примера указывает на `postgres:5432` — имя сервиса внутри сети compose. Для `make -C backend/auth run` или миграций с хоста задайте в локальном `.env` адрес своей PostgreSQL (см. §3, «auth с хоста»). Пароль БД в примере — `change-me`; его же получает контейнер `postgres`, поэтому менять его обязательности нет (порт БД наружу не публикуется). Слои читаются целиком: если меняете `CABBY_AUTH_DB_PASSWORD`, меняйте в том же файле и `CABBY_AUTH_DB_URL`, иначе `auth` придёт в `postgres` со старым паролем.
 

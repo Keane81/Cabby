@@ -1,8 +1,8 @@
 .PHONY: run test test-race vet
 
-# The committed example is the base: it carries every value a fresh clone needs, so no target lists
-# names and nothing has to be copied by hand. A local .env is read last and overrides only what
-# differs on this machine; values set on the make command line override both.
+# Only the local .env is read, not the committed example: copy .env.example to .env before the first
+# run, or CABBY_AUTH_ADDR stays unset and the service refuses to start. Values set on the make command
+# line override the file.
 -include .env
 # A bare `export` gives every value to the recipe process.
 export

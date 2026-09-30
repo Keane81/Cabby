@@ -1,7 +1,8 @@
 services:
-  # Each service reads the committed example first and its local .env last, so a value lives in one
-  # place: the example carries the defaults of the compose network, the local file only what differs
-  # on this machine. The same pair feeds the Makefiles, so `make run` and the container agree.
+  # auth reads the committed example first and its local .env last, so a value lives in one place:
+  # the example carries the defaults of the compose network, the local file only what differs on this
+  # machine. cabby-gateway reads only its local .env, so that file must be a full copy of the example;
+  # the example reaches the gateway only through interpolation of the published port (root Makefile).
   cabby-gateway:
     build:
       context: .
