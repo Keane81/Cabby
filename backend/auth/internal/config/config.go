@@ -37,7 +37,7 @@ func Load() (Config, error) {
 	if port == "" {
 		port = defaultGRPCPort
 	}
-	if _, err := strconv.ParseUint(port, 10, 16); err != nil {
+	if number, err := strconv.ParseUint(port, 10, 16); err != nil || number == 0 {
 		return Config{}, errors.New("CABBY_AUTH_GRPC_PORT must be a number between 1 and 65535")
 	}
 	return Config{

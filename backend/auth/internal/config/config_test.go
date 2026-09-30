@@ -64,3 +64,12 @@ func TestMetricsAddressIsFixed(t *testing.T) {
 		t.Fatalf("MetricsAddress = %q, want the fixed :9094 (R-11)", config.MetricsAddress)
 	}
 }
+
+func TestLoadRejectsZeroGRPCPort(t *testing.T) {
+	t.Setenv("CABBY_AUTH_DB_URL", "postgres://auth:secret@127.0.0.1:5432/auth")
+	t.Setenv("CABBY_AUTH_GRPC_PORT", "0")
+
+	if _, err := Load(); err == nil {
+		t.Fatal("Load accepted CABBY_AUTH_GRPC_PORT=0")
+	}
+}
