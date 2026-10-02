@@ -29,7 +29,7 @@ const (
 
 // methods bounds the `method` label to the operations of the contract; anything else is
 // reported as unknownMethod so an unexpected call cannot add series.
-var methods = []string{"RegisterCabber", "CreateCabberSession", "DeleteCabberSession"}
+var methods = []string{"RegisterCabber", "CreateCabberSession", "DeleteCabberSession", "VerifyCabberSession"}
 
 const unknownMethod = "unknown"
 

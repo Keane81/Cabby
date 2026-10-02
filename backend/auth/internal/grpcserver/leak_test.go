@@ -88,19 +88,28 @@ func TestNoSinkOfAuthCarriesAValueOfACall(t *testing.T) {
 	if opened.GetAccessToken() == "" {
 		t.Fatal("the session creation answered no access")
 	}
+	if _, err = server.VerifyCabberSession(ctx, &authpb.VerifyCabberSessionRequest{
+		AccessToken: opened.GetAccessToken(),
+	}); err != nil {
+		t.Fatalf("VerifyCabberSession: %v", err)
+	}
 	_, err = server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{
 		AccessToken: opened.GetAccessToken(),
 	})
 	if err != nil {
 		t.Fatalf("DeleteCabberSession: %v", err)
 	}
+	_, err = server.VerifyCabberSession(ctx, &authpb.VerifyCabberSessionRequest{
+		AccessToken: opened.GetAccessToken(),
+	})
+	refused("a revoked session presented for a check", err)
 	_, err = server.DeleteCabberSession(ctx, &authpb.DeleteCabberSessionRequest{
 		AccessToken: opened.GetAccessToken(),
 	})
 	refused("a session already revoked", err)
 
-	if len(refusals) != 5 {
-		t.Fatalf("the run collected %d refusals, want 5", len(refusals))
+	if len(refusals) != 6 {
+		t.Fatalf("the run collected %d refusals, want 6", len(refusals))
 	}
 
 	// What storage holds is the far end of the same rule: a dump of the tables reaches no log line,
