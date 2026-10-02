@@ -36,6 +36,7 @@ const (
 	AuthService_RegisterCabber_FullMethodName      = "/auth.v1.AuthService/RegisterCabber"
 	AuthService_CreateCabberSession_FullMethodName = "/auth.v1.AuthService/CreateCabberSession"
 	AuthService_DeleteCabberSession_FullMethodName = "/auth.v1.AuthService/DeleteCabberSession"
+	AuthService_VerifyCabberSession_FullMethodName = "/auth.v1.AuthService/VerifyCabberSession"
 )
 
 // AuthServiceClient is the client API for AuthService service.
@@ -68,6 +69,12 @@ type AuthServiceClient interface {
 	//	                  попадает сюда же (FR-021), ложного успеха нет
 	//	UNAVAILABLE — хранилище недоступно
 	DeleteCabberSession(ctx context.Context, in *DeleteCabberSessionRequest, opts ...grpc.CallOption) (*DeleteCabberSessionResponse, error)
+	// Подтверждает доступ и называет его владельца (FR-009 спецификации 004). Не отзывает доступ;
+	// сдвигает last_seen_at по тем же правилам окна, что и любая подтверждённая операция.
+	//
+	//	UNAUTHENTICATED — отсутствующий, отозванный или истёкший токен (тот же отказ, что у выхода)
+	//	UNAVAILABLE — хранилище недоступно
+	VerifyCabberSession(ctx context.Context, in *VerifyCabberSessionRequest, opts ...grpc.CallOption) (*VerifyCabberSessionResponse, error)
 }
 
 type authServiceClient struct {
@@ -108,6 +115,16 @@ func (c *authServiceClient) DeleteCabberSession(ctx context.Context, in *DeleteC
 	return out, nil
 }
 
+func (c *authServiceClient) VerifyCabberSession(ctx context.Context, in *VerifyCabberSessionRequest, opts ...grpc.CallOption) (*VerifyCabberSessionResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(VerifyCabberSessionResponse)
+	err := c.cc.Invoke(ctx, AuthService_VerifyCabberSession_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AuthServiceServer is the server API for AuthService service.
 // All implementations must embed UnimplementedAuthServiceServer
 // for forward compatibility.
@@ -138,6 +155,12 @@ type AuthServiceServer interface {
 	//	                  попадает сюда же (FR-021), ложного успеха нет
 	//	UNAVAILABLE — хранилище недоступно
 	DeleteCabberSession(context.Context, *DeleteCabberSessionRequest) (*DeleteCabberSessionResponse, error)
+	// Подтверждает доступ и называет его владельца (FR-009 спецификации 004). Не отзывает доступ;
+	// сдвигает last_seen_at по тем же правилам окна, что и любая подтверждённая операция.
+	//
+	//	UNAUTHENTICATED — отсутствующий, отозванный или истёкший токен (тот же отказ, что у выхода)
+	//	UNAVAILABLE — хранилище недоступно
+	VerifyCabberSession(context.Context, *VerifyCabberSessionRequest) (*VerifyCabberSessionResponse, error)
 	mustEmbedUnimplementedAuthServiceServer()
 }
 
@@ -156,6 +179,9 @@ func (UnimplementedAuthServiceServer) CreateCabberSession(context.Context, *Crea
 }
 func (UnimplementedAuthServiceServer) DeleteCabberSession(context.Context, *DeleteCabberSessionRequest) (*DeleteCabberSessionResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DeleteCabberSession not implemented")
+}
+func (UnimplementedAuthServiceServer) VerifyCabberSession(context.Context, *VerifyCabberSessionRequest) (*VerifyCabberSessionResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method VerifyCabberSession not implemented")
 }
 func (UnimplementedAuthServiceServer) mustEmbedUnimplementedAuthServiceServer() {}
 func (UnimplementedAuthServiceServer) testEmbeddedByValue()                     {}
@@ -232,6 +258,24 @@ func _AuthService_DeleteCabberSession_Handler(srv interface{}, ctx context.Conte
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AuthService_VerifyCabberSession_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(VerifyCabberSessionRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AuthServiceServer).VerifyCabberSession(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AuthService_VerifyCabberSession_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AuthServiceServer).VerifyCabberSession(ctx, req.(*VerifyCabberSessionRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AuthService_ServiceDesc is the grpc.ServiceDesc for AuthService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -250,6 +294,10 @@ var AuthService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteCabberSession",
 			Handler:    _AuthService_DeleteCabberSession_Handler,
+		},
+		{
+			MethodName: "VerifyCabberSession",
+			Handler:    _AuthService_VerifyCabberSession_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
