@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// Server is the auth.v1 transport of the cases: all three methods of the contract are served, and
+// Server is the auth.v1 transport of the cases: all four methods of the contract are served, and
 // each of them only calls its case and translates the answer.
 type Server struct {
 	authpb.UnimplementedAuthServiceServer
@@ -70,6 +70,20 @@ func (s *Server) DeleteCabberSession(
 		return nil, toStatus(err)
 	}
 	return &authpb.DeleteCabberSessionResponse{}, nil
+}
+
+// VerifyCabberSession confirms the session the caller presents and names its owner. It revokes
+// nothing: the owner it returns is what another service acts on (spec 004 FR-009), and the answer
+// for an invalid session is the one DeleteCabberSession gives, so the two cannot be told apart.
+func (s *Server) VerifyCabberSession(
+	ctx context.Context,
+	req *authpb.VerifyCabberSessionRequest,
+) (*authpb.VerifyCabberSessionResponse, error) {
+	owner, err := s.service.Verify(ctx, req.GetAccessToken())
+	if err != nil {
+		return nil, toStatus(err)
+	}
+	return &authpb.VerifyCabberSessionResponse{CabberId: owner}, nil
 }
 
 // Messages are fixed texts of the transport, never a cause: a database message can quote a row

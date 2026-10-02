@@ -345,6 +345,94 @@ func (*DeleteCabberSessionResponse) Descriptor() ([]byte, []int) {
 	return file_auth_v1_auth_proto_rawDescGZIP(), []int{5}
 }
 
+type VerifyCabberSessionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AccessToken   string                 `protobuf:"bytes,1,opt,name=access_token,json=accessToken,proto3" json:"access_token,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyCabberSessionRequest) Reset() {
+	*x = VerifyCabberSessionRequest{}
+	mi := &file_auth_v1_auth_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyCabberSessionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyCabberSessionRequest) ProtoMessage() {}
+
+func (x *VerifyCabberSessionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyCabberSessionRequest.ProtoReflect.Descriptor instead.
+func (*VerifyCabberSessionRequest) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *VerifyCabberSessionRequest) GetAccessToken() string {
+	if x != nil {
+		return x.AccessToken
+	}
+	return ""
+}
+
+type VerifyCabberSessionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	CabberId      string                 `protobuf:"bytes,1,opt,name=cabber_id,json=cabberId,proto3" json:"cabber_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *VerifyCabberSessionResponse) Reset() {
+	*x = VerifyCabberSessionResponse{}
+	mi := &file_auth_v1_auth_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *VerifyCabberSessionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*VerifyCabberSessionResponse) ProtoMessage() {}
+
+func (x *VerifyCabberSessionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_auth_v1_auth_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use VerifyCabberSessionResponse.ProtoReflect.Descriptor instead.
+func (*VerifyCabberSessionResponse) Descriptor() ([]byte, []int) {
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *VerifyCabberSessionResponse) GetCabberId() string {
+	if x != nil {
+		return x.CabberId
+	}
+	return ""
+}
+
 // Уточнение отказа валидации. Перечисляется в google.golang.org/grpc/status.Details().
 // При нескольких недостатках возвращается первый в фиксированном порядке
 // name -> email -> password (edge case спецификации 003).
@@ -360,7 +448,7 @@ type ErrorField struct {
 
 func (x *ErrorField) Reset() {
 	*x = ErrorField{}
-	mi := &file_auth_v1_auth_proto_msgTypes[6]
+	mi := &file_auth_v1_auth_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -372,7 +460,7 @@ func (x *ErrorField) String() string {
 func (*ErrorField) ProtoMessage() {}
 
 func (x *ErrorField) ProtoReflect() protoreflect.Message {
-	mi := &file_auth_v1_auth_proto_msgTypes[6]
+	mi := &file_auth_v1_auth_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -385,7 +473,7 @@ func (x *ErrorField) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorField.ProtoReflect.Descriptor instead.
 func (*ErrorField) Descriptor() ([]byte, []int) {
-	return file_auth_v1_auth_proto_rawDescGZIP(), []int{6}
+	return file_auth_v1_auth_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ErrorField) GetField() string {
@@ -422,15 +510,20 @@ const file_auth_v1_auth_proto_rawDesc = "" +
 	"\x0fexpires_at_unix\x18\x02 \x01(\x03R\rexpiresAtUnix\"?\n" +
 	"\x1aDeleteCabberSessionRequest\x12!\n" +
 	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\"\x1d\n" +
-	"\x1bDeleteCabberSessionResponse\":\n" +
+	"\x1bDeleteCabberSessionResponse\"?\n" +
+	"\x1aVerifyCabberSessionRequest\x12!\n" +
+	"\faccess_token\x18\x01 \x01(\tR\vaccessToken\":\n" +
+	"\x1bVerifyCabberSessionResponse\x12\x1b\n" +
+	"\tcabber_id\x18\x01 \x01(\tR\bcabberId\":\n" +
 	"\n" +
 	"ErrorField\x12\x14\n" +
 	"\x05field\x18\x01 \x01(\tR\x05field\x12\x16\n" +
-	"\x06reason\x18\x02 \x01(\tR\x06reason2\xa4\x02\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason2\x86\x03\n" +
 	"\vAuthService\x12Q\n" +
 	"\x0eRegisterCabber\x12\x1e.auth.v1.RegisterCabberRequest\x1a\x1f.auth.v1.RegisterCabberResponse\x12`\n" +
 	"\x13CreateCabberSession\x12#.auth.v1.CreateCabberSessionRequest\x1a$.auth.v1.CreateCabberSessionResponse\x12`\n" +
-	"\x13DeleteCabberSession\x12#.auth.v1.DeleteCabberSessionRequest\x1a$.auth.v1.DeleteCabberSessionResponseB:Z8github.com/Keane81/Cabby/backend/contracts/authpb;authpbb\x06proto3"
+	"\x13DeleteCabberSession\x12#.auth.v1.DeleteCabberSessionRequest\x1a$.auth.v1.DeleteCabberSessionResponse\x12`\n" +
+	"\x13VerifyCabberSession\x12#.auth.v1.VerifyCabberSessionRequest\x1a$.auth.v1.VerifyCabberSessionResponseB:Z8github.com/Keane81/Cabby/backend/contracts/authpb;authpbb\x06proto3"
 
 var (
 	file_auth_v1_auth_proto_rawDescOnce sync.Once
@@ -444,7 +537,7 @@ func file_auth_v1_auth_proto_rawDescGZIP() []byte {
 	return file_auth_v1_auth_proto_rawDescData
 }
 
-var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_auth_v1_auth_proto_goTypes = []any{
 	(*RegisterCabberRequest)(nil),       // 0: auth.v1.RegisterCabberRequest
 	(*RegisterCabberResponse)(nil),      // 1: auth.v1.RegisterCabberResponse
@@ -452,17 +545,21 @@ var file_auth_v1_auth_proto_goTypes = []any{
 	(*CreateCabberSessionResponse)(nil), // 3: auth.v1.CreateCabberSessionResponse
 	(*DeleteCabberSessionRequest)(nil),  // 4: auth.v1.DeleteCabberSessionRequest
 	(*DeleteCabberSessionResponse)(nil), // 5: auth.v1.DeleteCabberSessionResponse
-	(*ErrorField)(nil),                  // 6: auth.v1.ErrorField
+	(*VerifyCabberSessionRequest)(nil),  // 6: auth.v1.VerifyCabberSessionRequest
+	(*VerifyCabberSessionResponse)(nil), // 7: auth.v1.VerifyCabberSessionResponse
+	(*ErrorField)(nil),                  // 8: auth.v1.ErrorField
 }
 var file_auth_v1_auth_proto_depIdxs = []int32{
 	0, // 0: auth.v1.AuthService.RegisterCabber:input_type -> auth.v1.RegisterCabberRequest
 	2, // 1: auth.v1.AuthService.CreateCabberSession:input_type -> auth.v1.CreateCabberSessionRequest
 	4, // 2: auth.v1.AuthService.DeleteCabberSession:input_type -> auth.v1.DeleteCabberSessionRequest
-	1, // 3: auth.v1.AuthService.RegisterCabber:output_type -> auth.v1.RegisterCabberResponse
-	3, // 4: auth.v1.AuthService.CreateCabberSession:output_type -> auth.v1.CreateCabberSessionResponse
-	5, // 5: auth.v1.AuthService.DeleteCabberSession:output_type -> auth.v1.DeleteCabberSessionResponse
-	3, // [3:6] is the sub-list for method output_type
-	0, // [0:3] is the sub-list for method input_type
+	6, // 3: auth.v1.AuthService.VerifyCabberSession:input_type -> auth.v1.VerifyCabberSessionRequest
+	1, // 4: auth.v1.AuthService.RegisterCabber:output_type -> auth.v1.RegisterCabberResponse
+	3, // 5: auth.v1.AuthService.CreateCabberSession:output_type -> auth.v1.CreateCabberSessionResponse
+	5, // 6: auth.v1.AuthService.DeleteCabberSession:output_type -> auth.v1.DeleteCabberSessionResponse
+	7, // 7: auth.v1.AuthService.VerifyCabberSession:output_type -> auth.v1.VerifyCabberSessionResponse
+	4, // [4:8] is the sub-list for method output_type
+	0, // [0:4] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -479,7 +576,7 @@ func file_auth_v1_auth_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_v1_auth_proto_rawDesc), len(file_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   7,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

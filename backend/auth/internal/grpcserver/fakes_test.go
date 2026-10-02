@@ -60,6 +60,7 @@ type memorySessions struct {
 	created   []repo.Session
 	createErr error
 	revokeErr error
+	getErr    error
 }
 
 func newMemorySessions() *memorySessions {
@@ -76,6 +77,9 @@ func (m *memorySessions) Create(_ context.Context, session repo.Session) error {
 }
 
 func (m *memorySessions) GetByDigest(_ context.Context, digest []byte) (repo.Session, bool, error) {
+	if m.getErr != nil {
+		return repo.Session{}, false, m.getErr
+	}
 	session, found := m.stored[string(digest)]
 	return session, found, nil
 }

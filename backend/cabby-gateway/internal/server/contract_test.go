@@ -14,7 +14,7 @@ import (
 )
 
 func TestContractServedByteIdentical(t *testing.T) {
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), nil)
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), nil, nil)
 
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
@@ -32,7 +32,7 @@ func TestContractServedByteIdentical(t *testing.T) {
 
 func TestContractNotCountedAsHealthCheck(t *testing.T) {
 	metrics := NewMetrics()
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), metrics, nil)
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), metrics, nil, nil)
 
 	handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/openapi.yaml", nil))
 
@@ -75,7 +75,7 @@ func TestCanonicalContractMatchesRepositoryReference(t *testing.T) {
 
 func TestRouterPathsAreDefinedInContract(t *testing.T) {
 	doc := string(api.OpenAPIDocument)
-	for _, path := range []string{pathHealth, pathContract, pathCabbers, pathCabberSession} {
+	for _, path := range []string{pathHealth, pathContract, pathCabbers, pathCabberSession, pathCabberLocation} {
 		if !contractPathDefined(doc, path) {
 			t.Fatalf("router path %q is not defined in the published contract", path)
 		}

@@ -55,11 +55,15 @@ var (
 )
 
 // Operations is the port the public server drives. The fake of the tests and the gRPC client
-// below implement the same three methods.
+// below implement the same four methods.
 type Operations interface {
 	RegisterCabber(ctx context.Context, name, email, password string) (Cabber, error)
 	CreateCabberSession(ctx context.Context, email, password string) (Session, error)
 	DeleteCabberSession(ctx context.Context, accessToken string) error
+	// VerifyCabberSession confirms an access and names the cabber it belongs to. It is how an
+	// operation that needs a subject learns who is asking (spec 004 FR-009): the answer is the only
+	// source of the identifier a later call acts on.
+	VerifyCabberSession(ctx context.Context, accessToken string) (cabberID string, err error)
 }
 
 // Client talks to auth.v1.AuthService over one connection. grpc-go dials lazily and retries
@@ -122,6 +126,19 @@ func (c *Client) DeleteCabberSession(ctx context.Context, accessToken string) er
 		AccessToken: accessToken,
 	})
 	return translate(err)
+}
+
+func (c *Client) VerifyCabberSession(ctx context.Context, accessToken string) (string, error) {
+	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	response, err := c.api.VerifyCabberSession(withRequestID(callCtx), &authpb.VerifyCabberSessionRequest{
+		AccessToken: accessToken,
+	})
+	if err != nil {
+		return "", translate(err)
+	}
+	return response.GetCabberId(), nil
 }
 
 // withRequestID attaches the identifier the public server minted for this request. A call that came

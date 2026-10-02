@@ -23,14 +23,14 @@ cp deploy/monitoring/.env.example deploy/monitoring/.env
 
 Без `backend/cabby-gateway/.env` compose не запустится: `env_file` обязателен. Копия примера годится для compose как есть (`CABBY_GATEWAY_PORT=8082`, `CABBY_AUTH_ADDR=auth:9093`). Для запуска gateway с хоста (`make -C backend/cabby-gateway run`) адрес `auth:9093` вне сети compose не разрешается: на время такого запуска замените его в `.env` на `CABBY_AUTH_ADDR=127.0.0.1:<порт gRPC>` и верните `auth:9093` перед `make docker-up`, потому что контейнер читает тот же файл.
 
-`CABBY_AUTH_DB_URL` из `backend/auth/.env.example` указывает на `postgres:5432` — имя сервиса внутри сети compose. Для `make -C backend/auth run` или миграций с хоста задайте в локальном `.env` адрес своей PostgreSQL (см. §3, «auth с хоста»). Пароль БД в примере — `change-me`; его же получает контейнер `postgres`, поэтому менять его обязательности нет (порт БД наружу не публикуется). Если меняете `CABBY_AUTH_DB_PASSWORD`, меняйте в том же файле и `CABBY_AUTH_DB_URL`, иначе `auth` придёт в `postgres` со старым паролем.
+`CABBY_AUTH_DB_URL` из `backend/auth/.env.example` указывает на `auth-db:5432` — имя сервиса внутри сети compose. Для `make -C backend/auth run` или миграций с хоста задайте в локальном `.env` адрес своей PostgreSQL (см. §3, «auth с хоста»). Пароль БД в примере — `change-me`; его же получает контейнер `postgres`, поэтому менять его обязательности нет (порт БД наружу не публикуется). Если меняете `CABBY_AUTH_DB_PASSWORD`, меняйте в том же файле и `CABBY_AUTH_DB_URL`, иначе `auth` придёт в `postgres` со старым паролем.
 
 `.env` уже игнорируется корневым `.gitignore`; в image он не попадает: `.dockerignore` один на весь монорепозиторий и лежит в корне — контекст сборки image тоже корневой, потому что `go.mod` сервиса заменяет модуль `contracts` путём внутри репозитория (`replace … => ../contracts`).
 
 ## 3. Запуск
 
 ```bash
-make docker-up          # gateway + auth + postgres + prometheus + grafana
+make docker-up          # gateway + auth + auth-db + prometheus + grafana
 ```
 
 Что должно быть зелёным:
@@ -49,7 +49,7 @@ docker compose logs auth | grep -E 'migrations|listen'
 
 Нужен, когда сервис правят и отлаживают под редактором: пересборки image на каждый цикл нет. Отличия от контейнерного прогона — три:
 
-1. **Своя PostgreSQL.** `CABBY_AUTH_DB_URL` из примера указывает на `postgres:5432` — имя сервиса внутри сети compose, с хоста оно не разрешается. Годится тот же scratch-контейнер, что для интеграционных тестов (§5): он на `127.0.0.1:5433`, тогда как `cabby-postgres` наружу порт не публикует (R-05), а на `5432` может стоять чужой сервер. Пароль этого контейнера — тот, что передан в `POSTGRES_PASSWORD` при `docker run`; он не связан с `CABBY_AUTH_DB_PASSWORD` из примера (тот кормит только контейнер `postgres` из compose). Расхождение DSN и пароля роли видно по `failed SASL auth … password authentication failed` (SQLSTATE 28P01) — это не проблема сети; привести роль к значению из `.env` можно на месте: `docker exec -it cabby-auth-pg psql -U auth -d auth -c "alter user auth password '<из .env>'"`.
+1. **Своя PostgreSQL.** `CABBY_AUTH_DB_URL` из примера указывает на `auth-db:5432` — имя сервиса внутри сети compose, с хоста оно не разрешается. Годится тот же scratch-контейнер, что для интеграционных тестов (§5): он на `127.0.0.1:5433`, тогда как `cabby-postgres` наружу порт не публикует (R-05), а на `5432` может стоять чужой сервер. Пароль этого контейнера — тот, что передан в `POSTGRES_PASSWORD` при `docker run`; он не связан с `CABBY_AUTH_DB_PASSWORD` из примера (тот кормит только контейнер `auth-db` из compose). Расхождение DSN и пароля роли видно по `failed SASL auth … password authentication failed` (SQLSTATE 28P01) — это не проблема сети; привести роль к значению из `.env` можно на месте: `docker exec -it cabby-auth-pg psql -U auth -d auth -c "alter user auth password '<из .env>'"`.
 2. **Свободные 9093 и 9094.** Порт метрик — константа `metricsAddress` в `internal/config/config.go`, переопределить его нельзя, поэтому второй экземпляр `auth` на хосте не поднимается: процесс из забытого прошлого прогона даёт новому `bind: address already in use` уже после строки `migrations applied`. Проверить и освободить:
 
    ```bash
@@ -115,16 +115,16 @@ curl -i -X DELETE http://127.0.0.1:8082/cabber/session -H "Authorization: Bearer
 curl -i -X POST http://127.0.0.1:8082/cabbers/password/recovery
 
 # 8. Отказ зависимостей → 503 service_unavailable, а не ложный успех
-docker compose stop postgres
+docker compose stop auth-db
 curl -i -X POST http://127.0.0.1:8082/cabber/session \
   -H 'Content-Type: application/json' \
   -d '{"email":"ivan@example.com","password":"1234"}'
-docker compose start postgres
+docker compose start auth-db
 ```
 
 Тот же набор есть в Bruno-коллекции `backend/bruno/cabby-gateway/` (`registration.bru`, `login.bru`, `logout.bru`, `env: LOCAL`) — так операции проверяются в TEST и PROD окружениях.
 
-После `docker compose start postgres` возвращать сервис не нужно: пул `pgx` переподключается сам, первый же вход снова даёт `201`. Ожидать этого не обязан `healthz` — он независим от БД по спецификации 001 (R-09).
+После `docker compose start auth-db` возвращать сервис не нужно: пул `pgx` переподключается сам, первый же вход снова даёт `201`. Ожидать этого не обязан `healthz` — он независим от БД по спецификации 001 (R-09).
 
 Доступы проверяются на сервере по БД, поэтому шаг 5–6 стоит повторить после `docker compose restart auth`: перезапуск сервиса не должен отзывать доступы (состояние живёт в PostgreSQL, а не в памяти процесса).
 
@@ -147,14 +147,14 @@ cd backend/contracts      && go test ./...             # байт-в-байт р
 Интеграционные тесты репозитория выполняются только при заданном DSN и не входят в `make test`:
 
 ```bash
-# PostgreSQL нужен свой: контейнер `postgres` из compose наружу порт не публикует (R-05),
+# PostgreSQL нужен свой: контейнер `auth-db` из compose наружу порт не публикует (R-05),
 # а тесты поднимают отдельную схему в рамках одного прогона.
 docker run -d --name cabby-auth-pg -p 127.0.0.1:5433:5432 \
   -e POSTGRES_USER=auth -e POSTGRES_DB=auth -e POSTGRES_PASSWORD='<свой пароль>' \
   postgres:18-alpine
 
 # DSN принимает только этот target — из аргумента make или из окружения, но не из `.env`:
-# адрес `postgres` из `.env` разрешается лишь внутри сети compose. Без DSN размеченные файлы
+# адрес `auth-db` из `.env` разрешается лишь внутри сети compose. Без DSN размеченные файлы
 # пропускают себя, поэтому `make test` остаётся зелёным и без PostgreSQL.
 make -C backend/auth test-integration \
   CABBY_AUTH_DB_URL=postgres://auth:<свой пароль>@127.0.0.1:5433/auth?sslmode=disable

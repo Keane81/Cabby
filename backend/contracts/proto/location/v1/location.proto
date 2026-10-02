@@ -1,0 +1,53 @@
+// Контракт записи местоположения — пакет location.v1 сервиса location (backend/location).
+//
+// Владелец: сервис location (принцип I конституции — сервис владеет своей бизнес-областью
+// и данными). cabby-gateway — единственный потребитель в v1 и не имеет доступа к хранилищу
+// сервиса.
+//
+// Канонический файл: backend/contracts/proto/location/v1/location.proto (модуль contracts).
+// Эталонная копия: specs/004-cabber-location/contracts/location.proto. Копии обязаны совпадать
+// байт-в-байт; равенство проверяет parity-тест модуля contracts.
+//
+// Версионирование: пакет location.v1. Новые поля и методы — аддитивно (minor),
+// переименование, удаление и изменение семантики существующих полей — несовместимо (major).
+syntax = "proto3";
+
+package location.v1;
+
+option go_package = "github.com/Keane81/Cabby/backend/contracts/locationpb;locationpb";
+
+// LocationService — запись местоположения каббера. Чтения нет: оно появится отдельной
+// спецификацией. Метод доверяет cabber_id: сервис недоступен снаружи сети compose, а личность
+// подтверждает cabby-gateway через auth.v1.AuthService.VerifyCabberSession.
+service LocationService {
+  // Добавляет неизменяемую запись местоположения каббера (FR-001, FR-005). Прежние записи не
+  // заменяются. Момент приёма назначает сервис (FR-006). Ограничения частоты нет (FR-007).
+  //   INVALID_ARGUMENT + ErrorField — координаты некорректны (FR-002, FR-003); ничего не записано (FR-004)
+  //   UNAVAILABLE — хранилище недоступно; ложного успеха нет
+  rpc RecordCabberLocation(RecordCabberLocationRequest) returns (RecordCabberLocationResponse);
+}
+
+message RecordCabberLocationRequest {
+  // UUID каббера из подтверждённой сессии. Пустое или не-UUID значение — INTERNAL, а не
+  // INVALID_ARGUMENT: оно означает ошибку gateway, а не клиента.
+  string cabber_id = 1;
+  // Широта в градусах, -90..90 включительно.
+  double latitude = 2;
+  // Долгота в градусах, -180..180 включительно.
+  double longitude = 3;
+}
+
+message RecordCabberLocationResponse {
+  // Момент приёма, Unix-секунды и наносекундная доля; назначается сервисом.
+  int64 received_at_unix = 1;
+  int32 received_at_nanos = 2;
+}
+
+// Уточнение отказа валидации. Перечисляется в google.golang.org/grpc/status.Details().
+// При нескольких недостатках возвращается первый в порядке latitude -> longitude.
+message ErrorField {
+  // Имя поля запроса: "latitude" | "longitude".
+  string field = 1;
+  // Стабильный машинный признак: "not_a_number" | "out_of_range".
+  string reason = 2;
+}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -230,6 +231,14 @@ func (f *fakeService) DeleteCabberSession(ctx context.Context, _ *authpb.DeleteC
 	return &authpb.DeleteCabberSessionResponse{}, nil
 }
 
+func (f *fakeService) VerifyCabberSession(ctx context.Context, request *authpb.VerifyCabberSessionRequest) (*authpb.VerifyCabberSessionResponse, error) {
+	f.note(ctx)
+	if f.failWith != nil {
+		return nil, f.failWith
+	}
+	return &authpb.VerifyCabberSessionResponse{CabberId: "owner-of-" + request.GetAccessToken()}, nil
+}
+
 // connect serves the fake over an in-process listener and returns a client of the same shape the
 // gateway builds with Dial.
 func connect(t *testing.T, service authpb.AuthServiceServer) *Client {
@@ -253,4 +262,46 @@ func connect(t *testing.T, service authpb.AuthServiceServer) *Client {
 	t.Cleanup(func() { _ = conn.Close() })
 
 	return &Client{conn: conn, api: authpb.NewAuthServiceClient(conn), timeout: CallTimeout}
+}
+
+// TestVerifyCabberSessionAnswersTheOwnerAndTranslatesRefusals is the gateway side of spec 004 FR-009:
+// the owner comes back as a plain string, a refused access is the domain refusal, a dependency
+// failure is never read as one, and the access is repeated in no error text.
+func TestVerifyCabberSessionAnswersTheOwnerAndTranslatesRefusals(t *testing.T) {
+	owner, err := connect(t, &fakeService{}).VerifyCabberSession(context.Background(), "opaque-token")
+	if err != nil || owner != "owner-of-opaque-token" {
+		t.Errorf("VerifyCabberSession = %q, %v", owner, err)
+	}
+
+	for _, tc := range []struct {
+		desc string
+		fail error
+		want error
+	}{
+		{"a refused access", status.Error(codes.Unauthenticated, "the access opaque-token is gone"), ErrUnauthorized},
+		{"storage down", status.Error(codes.Unavailable, "down"), ErrUnavailable},
+		{"too slow", status.Error(codes.DeadlineExceeded, "late"), ErrUnavailable},
+		{"a defect", status.Error(codes.Internal, "panic"), ErrInternal},
+	} {
+		owner, err := connect(t, &fakeService{failWith: tc.fail}).VerifyCabberSession(context.Background(), "opaque-token")
+		if !errors.Is(err, tc.want) || owner != "" {
+			t.Errorf("%s: VerifyCabberSession = %q, %v, want %v", tc.desc, owner, err, tc.want)
+			continue
+		}
+		if strings.Contains(err.Error(), "opaque-token") {
+			t.Errorf("%s: the error repeats the access: %v", tc.desc, err)
+		}
+	}
+}
+
+func TestVerifyCabberSessionIsNeverRetried(t *testing.T) {
+	service := &fakeService{failWith: status.Error(codes.Unavailable, "connection reset")}
+	client := connect(t, service)
+
+	if _, err := client.VerifyCabberSession(context.Background(), "opaque-token"); !errors.Is(err, ErrUnavailable) {
+		t.Fatalf("VerifyCabberSession = %v, want ErrUnavailable", err)
+	}
+	if service.calls != 1 {
+		t.Errorf("the service was called %d times, want exactly 1", service.calls)
+	}
 }

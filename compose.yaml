@@ -8,6 +8,9 @@ services:
       dockerfile: backend/cabby-gateway/Dockerfile
     env_file:
       - ./backend/cabby-gateway/.env
+    depends_on:
+      - auth
+      - location
     ports:
       - "127.0.0.1:${CABBY_GATEWAY_PORT:-8080}:${CABBY_GATEWAY_PORT:-8080}"
     stop_grace_period: 10s
@@ -19,7 +22,7 @@ services:
     env_file:
       - ./backend/auth/.env
     depends_on:
-      - postgres
+      - auth-db
     # 9093 gRPC and 9094 metrics stay inside the compose network: neither is
     # published to the host (R-05, R-11).
     expose:
@@ -27,7 +30,7 @@ services:
       - "9094"
     stop_grace_period: 10s
 
-  postgres:
+  auth-db:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: auth
@@ -35,6 +38,31 @@ services:
       POSTGRES_PASSWORD: ${CABBY_AUTH_DB_PASSWORD}
     volumes:
       - auth-data:/var/lib/postgresql
+
+  location:
+    build:
+      context: .
+      dockerfile: backend/location/Dockerfile
+    env_file:
+      - ./backend/location/.env
+    depends_on:
+      - location-db
+    # 9095 gRPC and 9096 metrics stay inside the compose network: neither is published to the host.
+    expose:
+      - "9095"
+      - "9096"
+    stop_grace_period: 10s
+
+  # The records of location live in a database of their own, with their own volume and password:
+  # the owner of the data is the service, and auth shares no storage with it (spec 004 plan.md).
+  location-db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: location
+      POSTGRES_DB: location
+      POSTGRES_PASSWORD: ${CABBY_LOCATION_DB_PASSWORD}
+    volumes:
+      - location-data:/var/lib/postgresql
 
   prometheus:
     image: prom/prometheus:v3.14.0
@@ -46,6 +74,7 @@ services:
       - --storage.tsdb.retention.time=7d
     volumes:
       - ./deploy/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deploy/monitoring/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     ports:
       - "127.0.0.1:${PROMETHEUS_PORT:-9090}:9090"
@@ -69,3 +98,4 @@ volumes:
   prometheus-data:
   grafana-data:
   auth-data:
+  location-data:

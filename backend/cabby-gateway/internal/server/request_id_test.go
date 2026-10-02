@@ -22,7 +22,7 @@ var requestIDPattern = regexp.MustCompile(`^[0-9a-f]{16}$`)
 func TestCabberRequestsAreLoggedByOneID(t *testing.T) {
 	var logs bytes.Buffer
 	operations := &stubOperations{cabber: authclient.Cabber{ID: "cabber-1", Email: cabberEmail}}
-	handler := NewRouter(func() bool { return true }, zerolog.New(&logs), NewMetrics(), operations)
+	handler := NewRouter(func() bool { return true }, zerolog.New(&logs), NewMetrics(), operations, nil)
 	body := `{"name":"` + cabberName + `","email":"` + cabberEmail + `","password":"` + cabberPassword + `"}`
 
 	serveWith(handler, http.MethodPost, pathCabbers, body)
@@ -74,7 +74,7 @@ func TestDeleteSessionLineNamesTheRequestThePortSaw(t *testing.T) {
 func TestARejectedRequestStillNamesItself(t *testing.T) {
 	var logs bytes.Buffer
 	operations := &stubOperations{}
-	handler := NewRouter(func() bool { return true }, zerolog.New(&logs), NewMetrics(), operations)
+	handler := NewRouter(func() bool { return true }, zerolog.New(&logs), NewMetrics(), operations, nil)
 
 	response := serveWith(handler, http.MethodPost, pathCabbers, `{"name":`)
 	if response.Code != http.StatusBadRequest {

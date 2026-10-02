@@ -1,16 +1,19 @@
 openapi: 3.1.0
 info:
   title: cabby-gateway External API
-  version: 1.1.0
+  version: 1.2.0
   summary: Published external contract for cabby-gateway.
   description: |
     Authoritative machine-readable contract for external clients of cabby-gateway.
 
     Scope of this version:
-      - health-check (`GET /healthz`) and the cabber account operations
-        (`POST /cabbers`, `POST /cabber/session`, `DELETE /cabber/session`).
+      - health-check (`GET /healthz`), the cabber account operations
+        (`POST /cabbers`, `POST /cabber/session`, `DELETE /cabber/session`) and the
+        publication of the cabber's current location (`POST /cabber/location`).
       - Registration and session creation are anonymous; the cabber operations that need
         a session send its token as `Authorization: Bearer <access_token>`.
+      - Location records are only added: there is no operation that reads, changes or
+        removes them in this version, and calling one yields 404 or 405.
       - Password change and recovery, email confirmation, profile read/update
         and deregistration are deliberately absent: they are not part of this
         contract, and calling them yields 404 `unknown_operation`.
@@ -45,7 +48,8 @@ tags:
     description: Liveness/readiness of cabby-gateway for external clients.
   - name: cabber
     description: >-
-      Account of a cabber — registration and the sessions it opens and closes.
+      Account of a cabber — registration, the sessions it opens and closes, and the
+      location it publishes.
   - name: contract
     description: Contract discovery and metadata (not a business operation).
 paths:
@@ -201,6 +205,48 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/DependencyUnavailable'
+  /cabber/location:
+    post:
+      tags: [cabber]
+      operationId: recordCabberLocation
+      summary: Record the current location of the cabber.
+      description: |
+        The cabber is the owner of the session in the `Authorization: Bearer` header; the
+        request names no cabber, and a property that tries to is an unknown one and rejects
+        the body. Every accepted request adds a new immutable record: the previous records
+        are kept, equal positions included, and the service sets the time of receipt. There
+        is no limit on the frequency of requests.
+
+        An absent header, an unknown scheme, an empty token and an expired, idle or revoked
+        session all give the same 401 answer as the other session operations, and nothing is
+        recorded; the session is checked before the body is read. A rejected body records
+        nothing either. Values beyond seven decimals are rounded to seven.
+      security:
+        - bearerAccess: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CabberLocationRequest'
+      responses:
+        '201':
+          description: >-
+            The location is recorded. The answer is sent only after the record is stored.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CabberLocationReceipt'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/DependencyUnavailable'
   /openapi.yaml:
     get:
       tags: [contract]
@@ -233,7 +279,9 @@ components:
       description: >-
         The request was rejected before anything was created or changed. `error.field`
         names the field at fault; for a registration with several defects it names the
-        first one in the fixed order `name`, `email`, `password`.
+        first one in the fixed order `name`, `email`, `password`; for a location it names
+        `latitude` or `longitude`, the first one that is absent, not a number or out of its
+        range.
       content:
         application/json:
           schema:
@@ -364,6 +412,36 @@ components:
             Absolute limit of the session, at most 96 hours after it was opened. A session
             also ends after 24 hours without use and the moment it is revoked, so a client
             treats 401 as the signal to create a new session.
+    CabberLocationRequest:
+      type: object
+      description: >-
+        The current position of the cabber in degrees (WGS 84). The bounds are inclusive and
+        `0, 0` is a valid position. A string, `null` or an absent value is rejected.
+      required: [latitude, longitude]
+      additionalProperties: false
+      properties:
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          description: Degrees north; rounded to seven decimals when stored.
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          description: Degrees east; rounded to seven decimals when stored.
+    CabberLocationReceipt:
+      type: object
+      description: Confirmation that a location was recorded.
+      required: [received_at]
+      additionalProperties: false
+      properties:
+        received_at:
+          type: string
+          format: date-time
+          description: >-
+            The moment the service received the record, set by the service and not by the
+            client, in UTC with at most microsecond precision.
     Error:
       type: object
       description: >-
@@ -389,7 +467,7 @@ components:
               type: string
               description: >-
                 Name of the request field the rejection refers to (`name`, `email`,
-                `password`). Present only when the failure names one; clients MUST
+                `password`, `latitude`, `longitude`). Present only when the failure names one; clients MUST
                 tolerate its absence.
     ErrorCode:
       type: string

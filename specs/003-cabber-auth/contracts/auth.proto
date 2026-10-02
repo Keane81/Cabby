@@ -42,6 +42,12 @@ service AuthService {
   //                     попадает сюда же (FR-021), ложного успеха нет
   //   UNAVAILABLE — хранилище недоступно
   rpc DeleteCabberSession(DeleteCabberSessionRequest) returns (DeleteCabberSessionResponse);
+
+  // Подтверждает доступ и называет его владельца (FR-009 спецификации 004). Не отзывает доступ;
+  // сдвигает last_seen_at по тем же правилам окна, что и любая подтверждённая операция.
+  //   UNAUTHENTICATED — отсутствующий, отозванный или истёкший токен (тот же отказ, что у выхода)
+  //   UNAVAILABLE — хранилище недоступно
+  rpc VerifyCabberSession(VerifyCabberSessionRequest) returns (VerifyCabberSessionResponse);
 }
 
 message RegisterCabberRequest {
@@ -84,6 +90,14 @@ message DeleteCabberSessionRequest {
 }
 
 message DeleteCabberSessionResponse {}
+
+message VerifyCabberSessionRequest {
+  string access_token = 1;
+}
+
+message VerifyCabberSessionResponse {
+  string cabber_id = 1;
+}
 
 // Уточнение отказа валидации. Перечисляется в google.golang.org/grpc/status.Details().
 // При нескольких недостатках возвращается первый в фиксированном порядке

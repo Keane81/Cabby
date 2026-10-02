@@ -31,3 +31,24 @@ func TestCanonicalProtoMatchesRepositoryReference(t *testing.T) {
 			canonicalProto, referenceProto)
 	}
 }
+
+const (
+	canonicalLocationProto = "proto/location/v1/location.proto"
+	referenceLocationProto = "../../specs/004-cabber-location/contracts/location.proto"
+)
+
+// TestCanonicalLocationProtoMatchesRepositoryReference guards the location contract the same way.
+func TestCanonicalLocationProtoMatchesRepositoryReference(t *testing.T) {
+	canonical, err := os.ReadFile(canonicalLocationProto)
+	if err != nil {
+		t.Fatalf("read canonical %s: %v", canonicalLocationProto, err)
+	}
+	reference, err := os.ReadFile(referenceLocationProto)
+	if err != nil {
+		t.Fatalf("read reference %s: %v", referenceLocationProto, err)
+	}
+	if !bytes.Equal(canonical, reference) {
+		t.Fatalf("%s drifted from %s: both copies must be updated in the same change",
+			canonicalLocationProto, referenceLocationProto)
+	}
+}

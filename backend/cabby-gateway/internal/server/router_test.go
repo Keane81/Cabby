@@ -14,7 +14,7 @@ import (
 // served here and now.
 func TestCabberPathsKeepTheirMethods(t *testing.T) {
 	operations := &stubOperations{}
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), operations)
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), operations, nil)
 
 	// The access of a cabber is opened by POST and closed by DELETE; nothing else is served on the
 	// path, and Allow says so.
@@ -53,7 +53,7 @@ func TestCabberPathsKeepTheirMethods(t *testing.T) {
 // TestOperationsLeaveThePublishedPathsAlone re-checks spec 001 and 002 through the same router that
 // now serves the cabber operations.
 func TestOperationsLeaveThePublishedPathsAlone(t *testing.T) {
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), &stubOperations{})
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), &stubOperations{}, nil)
 
 	health := serveWith(handler, http.MethodGet, pathHealth, "")
 	if health.Code != http.StatusOK || !bytes.Contains(health.Body.Bytes(), []byte(`"status":"ok"`)) {

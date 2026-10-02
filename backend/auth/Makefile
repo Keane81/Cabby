@@ -5,7 +5,7 @@
 TEST_DB_URL := $(CABBY_AUTH_DB_URL)
 
 # Only the local .env is read, not the committed example: its DSN names the compose service
-# `postgres`, which resolves only inside the compose network, so a host run needs its own values.
+# `auth-db`, which resolves only inside the compose network, so a host run needs its own values.
 # Copy .env.example to .env and adjust it before the first `make run`; a value on the make command
 # line overrides the file. A bare `export` hands every value to the recipe process.
 -include .env

@@ -87,7 +87,7 @@ backend/
 │   ├── go.mod                         # module github.com/Keane81/Cabby/backend/auth
 │   ├── Makefile                       # run test test-race vet test-integration migrate
 │   ├── Dockerfile                     # multi-stage от корня репозитория: golang:1.26.1-alpine → scratch, USER 65532
-│   ├── .env.example                   # CABBY_AUTH_DB_PASSWORD (его читает compose для postgres),
+│   ├── .env.example                   # CABBY_AUTH_DB_PASSWORD (его читает compose для auth-db),
 │   │                                  # CABBY_AUTH_DB_URL, CABBY_AUTH_GRPC_PORT (по умолчанию 9093);
 │   │                                  # порт метрик 9094 — константа кода, переменной нет (R-11)
 │   ├── cmd/auth/main.go               # конфиг, логгер, пул, миграции; gRPC и metrics запускает lifecycle.Run
@@ -125,7 +125,7 @@ deploy/monitoring/
 └── grafana/dashboards/
     └── auth.json                    # новый дашборд: RPS по операциям, доли отказов, p95 задержки
 
-compose.yaml                         # + сервисы auth и postgres, depends_on у gateway; контекст сборки — корень репозитория
+compose.yaml                         # + сервисы auth и auth-db, depends_on у gateway; контекст сборки — корень репозитория
 Makefile                             # COMPOSE читает env-файлы слоями (пример, затем локальный), пропущенные отсутствующие
 .dockerignore                        # один на весь монорепозиторий: заменяет пофайловые, потому что контекст сборки общий
 ```
