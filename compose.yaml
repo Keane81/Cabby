@@ -19,7 +19,7 @@ services:
     env_file:
       - ./backend/auth/.env
     depends_on:
-      - postgres
+      - auth-db
     # 9093 gRPC and 9094 metrics stay inside the compose network: neither is
     # published to the host (R-05, R-11).
     expose:
@@ -27,7 +27,7 @@ services:
       - "9094"
     stop_grace_period: 10s
 
-  postgres:
+  auth-db:
     image: postgres:18-alpine
     environment:
       POSTGRES_USER: auth
