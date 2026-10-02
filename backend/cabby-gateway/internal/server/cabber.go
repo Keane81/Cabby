@@ -138,7 +138,12 @@ func (rt *Router) dependency(operation string, started time.Time) {
 // malformed body or one carrying an unknown property is a 400 with no field, because no single
 // field of the request is at fault.
 func decodeCabberBody(w http.ResponseWriter, r *http.Request, target any) bool {
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, maxCabberBody))
+	return decodeBody(w, r, target, maxCabberBody)
+}
+
+// decodeBody is decodeCabberBody with the limit of the operation.
+func decodeBody(w http.ResponseWriter, r *http.Request, target any, limit int64) bool {
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, limit))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		writeError(w, http.StatusBadRequest, CodeInvalidRequest, "the request body is not a valid object")

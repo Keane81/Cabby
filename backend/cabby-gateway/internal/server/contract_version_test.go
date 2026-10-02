@@ -16,8 +16,8 @@ func TestContractVersionIsSemver(t *testing.T) {
 		t.Fatal("contract has no info.version")
 	}
 	version := match[1]
-	if version != "1.1.0" {
-		t.Fatalf("info.version = %q, want 1.1.0", version)
+	if version != "1.2.0" {
+		t.Fatalf("info.version = %q, want 1.2.0", version)
 	}
 	if !semverRE.MatchString(version) {
 		t.Fatalf("info.version %q is not valid SemVer", version)

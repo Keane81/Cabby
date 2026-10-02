@@ -1,0 +1,22 @@
+meta {
+  name: location
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{accessToken}}
+}
+
+body:json {
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  }
+}

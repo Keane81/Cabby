@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/authclient"
+	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/locationclient"
 	"github.com/rs/zerolog"
 )
 
@@ -13,8 +14,9 @@ const (
 	pathContract = "/openapi.yaml"
 	// The cabber operations of the published contract: the account of a cabber and the sessions it
 	// opens.
-	pathCabbers       = "/cabbers"
-	pathCabberSession = "/cabber/session"
+	pathCabbers        = "/cabbers"
+	pathCabberSession  = "/cabber/session"
+	pathCabberLocation = "/cabber/location"
 )
 
 // Router dispatches public-port requests to the operations of the published contract and rejects
@@ -26,12 +28,23 @@ type Router struct {
 	logger     zerolog.Logger
 	observer   *Metrics
 	operations authclient.Operations
+	locations  locationclient.Locations
 }
 
 // NewRouter builds the public-port handler. observer may be nil when metrics
-// are not collected; operations is the auth service the cabber operations run on.
-func NewRouter(ready func() bool, logger zerolog.Logger, observer *Metrics, operations authclient.Operations) *Router {
-	rt := &Router{mux: http.NewServeMux(), ready: ready, logger: logger, observer: observer, operations: operations}
+// are not collected; operations is the auth service the cabber operations run on and locations is
+// the location service the record of a position goes to.
+func NewRouter(
+	ready func() bool,
+	logger zerolog.Logger,
+	observer *Metrics,
+	operations authclient.Operations,
+	locations locationclient.Locations,
+) *Router {
+	rt := &Router{
+		mux: http.NewServeMux(), ready: ready, logger: logger, observer: observer,
+		operations: operations, locations: locations,
+	}
 
 	// One line per operation of the contract: the mux owns the method check and the Allow header,
 	// so a new operation is a new line here and nothing else.
@@ -44,6 +57,7 @@ func NewRouter(ready func() bool, logger zerolog.Logger, observer *Metrics, oper
 	rt.mux.HandleFunc(http.MethodPost+" "+pathCabbers, rt.counted(operationRegister, rt.registerCabber))
 	rt.mux.HandleFunc(http.MethodPost+" "+pathCabberSession, rt.counted(operationCreateSession, rt.createCabberSession))
 	rt.mux.HandleFunc(http.MethodDelete+" "+pathCabberSession, rt.counted(operationDeleteSession, rt.deleteCabberSession))
+	rt.mux.HandleFunc(http.MethodPost+" "+pathCabberLocation, rt.counted(operationRecordLocation, rt.recordCabberLocation))
 	return rt
 }
 

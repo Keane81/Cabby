@@ -22,17 +22,24 @@ type Config struct {
 	// AuthAddress is the address of the auth gRPC service. It is required, but dialing it connects
 	// nowhere: grpc dials lazily, so the health-check keeps answering while auth is down.
 	AuthAddress string
+	// LocationAddress is the address of the location gRPC service. Like AuthAddress it is dialled
+	// lazily, so the health-check keeps answering while location is down.
+	LocationAddress string
 	// PublicAddress is the listen address of the public HTTP port.
 	PublicAddress string
 	// MetricsAddress is the listen address of the Prometheus endpoint.
 	MetricsAddress string
 }
 
-// Load reads the environment and fails fast on a missing auth address or an unusable port.
+// Load reads the environment and fails fast on a missing auth or location address or an unusable port.
 func Load() (Config, error) {
 	authAddress := os.Getenv("CABBY_AUTH_ADDR")
 	if authAddress == "" {
 		return Config{}, errors.New("CABBY_AUTH_ADDR is not set")
+	}
+	locationAddress := os.Getenv("CABBY_LOCATION_ADDR")
+	if locationAddress == "" {
+		return Config{}, errors.New("CABBY_LOCATION_ADDR is not set")
 	}
 	port := os.Getenv("CABBY_GATEWAY_PORT")
 	if port == "" {
@@ -42,8 +49,9 @@ func Load() (Config, error) {
 		return Config{}, errors.New("CABBY_GATEWAY_PORT must be a number between 1 and 65535")
 	}
 	return Config{
-		AuthAddress:    authAddress,
-		PublicAddress:  net.JoinHostPort("", port),
-		MetricsAddress: metricsAddress,
+		AuthAddress:     authAddress,
+		LocationAddress: locationAddress,
+		PublicAddress:   net.JoinHostPort("", port),
+		MetricsAddress:  metricsAddress,
 	}, nil
 }

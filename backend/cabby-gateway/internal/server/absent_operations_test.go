@@ -3,6 +3,8 @@ package server
 import (
 	"io"
 	"net/http"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/Keane81/Cabby/backend/cabby-gateway/api"
@@ -71,6 +73,34 @@ func TestAbsentOperationsAreAbsentFromTheContract(t *testing.T) {
 	for _, request := range absentOperations {
 		if contractPathDefined(document, request.path) {
 			t.Errorf("%s is defined in the contract although the feature publishes no such operation", request.path)
+		}
+	}
+}
+
+// TestLocationPathPublishesOnlyTheRecord keeps the deliberate absence of any way to read, change or
+// remove location records (spec 004 Assumptions): the path of the contract declares POST and nothing
+// else, and no operation reads like a read of locations.
+func TestLocationPathPublishesOnlyTheRecord(t *testing.T) {
+	document := string(api.OpenAPIDocument)
+	start := strings.Index(document, "\n  "+pathCabberLocation+":\n")
+	if start < 0 {
+		t.Fatalf("the contract does not define %s", pathCabberLocation)
+	}
+	block := document[start+1:]
+	if next := regexp.MustCompile(`(?m)^ {2}/\S+:$`).FindStringIndex(block[1:]); next != nil {
+		block = block[:next[0]+1]
+	}
+	for _, method := range []string{"get", "put", "patch", "delete", "head"} {
+		if regexp.MustCompile(`(?m)^ {4}` + method + `:$`).MatchString(block) {
+			t.Errorf("the contract declares %s on %s", method, pathCabberLocation)
+		}
+	}
+	if !regexp.MustCompile(`(?m)^ {4}post:$`).MatchString(block) {
+		t.Errorf("the contract does not declare POST on %s", pathCabberLocation)
+	}
+	for _, operation := range []string{"getCabberLocation", "listCabberLocations", "deleteCabberLocation", "updateCabberLocation"} {
+		if contractDeclaresOperation(document, operation) {
+			t.Errorf("the contract declares operation %q", operation)
 		}
 	}
 }

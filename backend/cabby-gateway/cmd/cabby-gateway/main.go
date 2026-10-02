@@ -11,6 +11,7 @@ import (
 
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/authclient"
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/config"
+	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/locationclient"
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/server"
 	"github.com/Keane81/Cabby/backend/lifecycle"
 	"github.com/rs/zerolog"
@@ -43,6 +44,11 @@ func run(ctx context.Context, logger zerolog.Logger) error {
 	// Closing runs after the listeners have shut down: a request still in flight may need the
 	// dependency until the very end.
 	defer func() { _ = authClient.Close() }()
+	locationClient, err := locationclient.Dial(cfg.LocationAddress)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = locationClient.Close() }()
 
 	publicListener, err := net.Listen("tcp", cfg.PublicAddress)
 	if err != nil {
@@ -67,10 +73,11 @@ func run(ctx context.Context, logger zerolog.Logger) error {
 		Str("public_address", publicListener.Addr().String()).
 		Str("metrics_address", metricsListener.Addr().String()).
 		Str("auth_address", cfg.AuthAddress).
+		Str("location_address", cfg.LocationAddress).
 		Msg("gateway listening")
 
 	err = lifecycle.Run(ctx, stopTimeout,
-		lifecycle.HTTP("public", publicListener, server.NewRouter(ready.Load, logger, metrics, authClient)),
+		lifecycle.HTTP("public", publicListener, server.NewRouter(ready.Load, logger, metrics, authClient, locationClient)),
 		lifecycle.HTTP("metrics", metricsListener, metrics.Handler()),
 	)
 	if err == nil {

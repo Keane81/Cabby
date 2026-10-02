@@ -24,7 +24,7 @@ func TestHealthMetricsTrackEachOutcomeOnce(t *testing.T) {
 
 	var ready atomic.Bool
 	ready.Store(true)
-	handler := NewRouter(ready.Load, zerolog.Nop(), metrics, nil)
+	handler := NewRouter(ready.Load, zerolog.Nop(), metrics, nil, nil)
 	request := func(method, path string) {
 		t.Helper()
 		response := httptest.NewRecorder()
@@ -105,7 +105,7 @@ func TestCabberSinksCarryNoValueOfTheRequest(t *testing.T) {
 		cabber:  authclient.Cabber{ID: "cabber-1", Email: leakEmail},
 		session: authclient.Session{AccessToken: leakAccess, ExpiresAt: time.Unix(1_800_000_000, 0).UTC()},
 	}
-	handler := NewRouter(func() bool { return true }, zerolog.New(&logged), metrics, operations)
+	handler := NewRouter(func() bool { return true }, zerolog.New(&logged), metrics, operations, nil)
 	registration := `{"name":"` + cabberName + `","email":"` + leakEmail + `","password":"` + leakPassword + `"}`
 	createSessionBody := `{"email":"` + leakEmail + `","password":"` + leakPassword + `"}`
 

@@ -11,12 +11,20 @@ import (
 // Operations and outcomes of the cabber counters (R-11). Both label sets are closed: a request can
 // only add a value from these lists, so no request data ever reaches a metric name.
 const (
-	operationRegister      = "register"
-	operationCreateSession = "create_session"
-	operationDeleteSession = "delete_session"
+	operationRegister       = "register"
+	operationCreateSession  = "create_session"
+	operationDeleteSession  = "delete_session"
+	operationRecordLocation = "record_location"
+
+	// operationVerifySession names the call to auth that confirms an access inside another
+	// operation. It has no request counter of its own — the operation it serves is counted — only a
+	// dependency delay, so the share of auth in the time of a record can be read apart from location.
+	operationVerifySession = "verify_session"
 )
 
-var cabberOperations = []string{operationRegister, operationCreateSession, operationDeleteSession}
+var cabberOperations = []string{operationRegister, operationCreateSession, operationDeleteSession, operationRecordLocation}
+
+var dependencyOperations = append(append([]string{}, cabberOperations...), operationVerifySession)
 
 const (
 	outcomeSuccess      = "success"
@@ -65,10 +73,10 @@ func NewMetrics() *Metrics {
 
 	cabberDependency := prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "cabby_gateway_cabber_dependency_duration_seconds",
-		Help:    "Duration of one call to the auth service, by operation.",
+		Help:    "Duration of one call to a service behind the gateway (auth or location), by operation.",
 		Buckets: dependencyBuckets,
 	}, []string{"operation"})
-	for _, operation := range cabberOperations {
+	for _, operation := range dependencyOperations {
 		cabberDependency.WithLabelValues(operation)
 	}
 

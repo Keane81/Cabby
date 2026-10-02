@@ -34,6 +34,9 @@ type stubOperations struct {
 	session authclient.Session
 	err     error
 
+	// cabberID is what VerifyCabberSession answers with.
+	cabberID string
+
 	calls     int
 	sawName   string
 	sawEmail  string
@@ -64,6 +67,13 @@ func (s *stubOperations) DeleteCabberSession(ctx context.Context, accessToken st
 	s.sawAccess = accessToken
 	s.sawRequestID = requestid.From(ctx)
 	return s.err
+}
+
+func (s *stubOperations) VerifyCabberSession(ctx context.Context, accessToken string) (string, error) {
+	s.calls++
+	s.sawAccess = accessToken
+	s.sawRequestID = requestid.From(ctx)
+	return s.cabberID, s.err
 }
 
 func TestRegisterCabberAnswersTheAccountItCreated(t *testing.T) {
@@ -220,7 +230,7 @@ func TestCabberFailureNeverRepeatsRequestData(t *testing.T) {
 func TestCabberRequestsAreCounted(t *testing.T) {
 	metrics := NewMetrics()
 	operations := &stubOperations{session: authclient.Session{AccessToken: "a", ExpiresAt: time.Now()}}
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), metrics, operations)
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), metrics, operations, nil)
 
 	for range 2 {
 		serveWith(handler, http.MethodPost, pathCabberSession, `{"email":"a@b","password":"1234"}`)
@@ -309,7 +319,7 @@ func TestDeleteSessionKeepsTheAccessOutOfEverySink(t *testing.T) {
 	var logged bytes.Buffer
 	metrics := NewMetrics()
 	operations := &stubOperations{err: authclient.ErrUnauthorized}
-	handler := NewRouter(func() bool { return true }, zerolog.New(&logged), metrics, operations)
+	handler := NewRouter(func() bool { return true }, zerolog.New(&logged), metrics, operations, nil)
 
 	response := deleteSessionRequest(t, handler, "Bearer "+cabberAccess)
 	if response.Code != http.StatusUnauthorized {
@@ -351,13 +361,13 @@ func deleteSessionRequest(t *testing.T, handler http.Handler, authorization stri
 // routerWith is a router for a test that chooses the port and, for the leak guards, the sink of the
 // log.
 func routerWith(operations authclient.Operations, logOut io.Writer) http.Handler {
-	return NewRouter(func() bool { return true }, zerolog.New(logOut), NewMetrics(), operations)
+	return NewRouter(func() bool { return true }, zerolog.New(logOut), NewMetrics(), operations, nil)
 }
 
 // cabberRequest sends one request to a router built over the given port and records the answer.
 func cabberRequest(t *testing.T, operations authclient.Operations, method, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), operations)
+	handler := NewRouter(func() bool { return true }, zerolog.Nop(), NewMetrics(), operations, nil)
 	return serveWith(handler, method, path, body)
 }
 
