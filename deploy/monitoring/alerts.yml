@@ -1,0 +1,23 @@
+# Alert rules of the location service. There is no Alertmanager in this stack: the rules are
+# evaluated by Prometheus and show up on its Alerts page, which is the compensation for the absence
+# of a frequency limit (spec 004 plan.md, Complexity Tracking). Thresholds are the ones of the plan:
+# 600 rps is the peak the sizing assumes, 300 ms is the p95 target of a record.
+groups:
+  - name: location
+    rules:
+      - alert: LocationRecordRateAbovePlan
+        expr: sum(rate(cabby_location_records_total{outcome="success"}[5m])) > 600
+        for: 10m
+        annotations:
+          summary: Location records arrive faster than the 600 rps the sizing assumes.
+          description: The table grows faster than planned and nothing limits a client; review the plan (R-02) and the policy of storage.
+      - alert: LocationRecordLatencyAbovePlan
+        expr: histogram_quantile(0.95, sum by (le) (rate(cabby_location_request_duration_seconds_bucket[5m]))) > 0.3
+        for: 10m
+        annotations:
+          summary: The p95 of recording a location is above the 300 ms target.
+      - alert: LocationRecordFailures
+        expr: sum(rate(cabby_location_records_total{outcome="failure"}[5m])) > 0
+        for: 5m
+        annotations:
+          summary: Location records fail to be stored.
