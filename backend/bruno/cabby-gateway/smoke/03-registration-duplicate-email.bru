@@ -1,0 +1,29 @@
+meta {
+  name: 03 registration, email already taken
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{host}}/cabbers
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Smoke Twin",
+    "email": "  {{smokeEmailUpper}}  ",
+    "password": "other1234"
+  }
+}
+
+script:pre-request {
+  // The same address in another case and with spaces: canonicalisation must make it a duplicate.
+  bru.setVar("smokeEmailUpper", bru.getVar("smokeEmail").toUpperCase());
+}
+
+assert {
+  res.status: eq 409
+  res.body.error.code: eq email_taken
+}

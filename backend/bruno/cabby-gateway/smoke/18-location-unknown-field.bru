@@ -1,0 +1,24 @@
+meta {
+  name: 18 location, body names a cabber
+  type: http
+  seq: 18
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{smokeToken}}
+}
+
+body:json {
+  { "latitude": 55.7558, "longitude": 37.6173, "cabber_id": "x" }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq invalid_request
+}

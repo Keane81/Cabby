@@ -1,0 +1,26 @@
+meta {
+  name: 08 location, boundary values are valid
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{smokeToken}}
+}
+
+body:json {
+  {
+    "latitude": -90,
+    "longitude": 180
+  }
+}
+
+assert {
+  res.status: eq 201
+}

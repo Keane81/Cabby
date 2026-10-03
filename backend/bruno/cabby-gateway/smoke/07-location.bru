@@ -1,0 +1,32 @@
+meta {
+  name: 07 location, authorized
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{smokeToken}}
+}
+
+body:json {
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("returns the receipt time", function () {
+    expect(res.body.received_at).to.be.a("string").and.not.empty;
+  });
+}

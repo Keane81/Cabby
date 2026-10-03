@@ -1,0 +1,35 @@
+meta {
+  name: 06 login
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{host}}/cabber/session
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "{{smokeEmail}}",
+    "password": "{{smokePassword}}"
+  }
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("returns a token and its expiry", function () {
+    expect(res.body.access_token).to.be.a("string").and.not.empty;
+    expect(res.body.expires_at).to.be.a("string").and.not.empty;
+  });
+}
+
+script:post-response {
+  if (res.status === 201) {
+    bru.setVar("smokeToken", res.body.access_token);
+  }
+}

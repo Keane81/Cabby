@@ -1,0 +1,29 @@
+meta {
+  name: 05 login, unknown email
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{host}}/cabber/session
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "email": "nobody-{{$timestamp}}@example.com",
+    "password": "{{smokePassword}}"
+  }
+}
+
+assert {
+  res.status: eq 401
+  res.body.error.code: eq unauthorized
+}
+
+tests {
+  test("same answer as for a wrong password", function () {
+    expect(res.body.error.message).to.be.a("string").and.not.empty;
+  });
+}

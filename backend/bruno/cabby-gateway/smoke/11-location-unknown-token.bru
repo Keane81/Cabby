@@ -1,0 +1,27 @@
+meta {
+  name: 11 location, unknown token
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: not-a-real-token
+}
+
+body:json {
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  }
+}
+
+assert {
+  res.status: eq 401
+  res.body.error.code: eq unauthorized
+}

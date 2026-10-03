@@ -1,0 +1,19 @@
+meta {
+  name: 19 logout
+  type: http
+  seq: 19
+}
+
+delete {
+  url: {{host}}/cabber/session
+  body: none
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{smokeToken}}
+}
+
+assert {
+  res.status: eq 204
+}

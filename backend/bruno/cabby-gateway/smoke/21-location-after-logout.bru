@@ -1,0 +1,27 @@
+meta {
+  name: 21 location, session revoked by logout
+  type: http
+  seq: 21
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{smokeToken}}
+}
+
+body:json {
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  }
+}
+
+assert {
+  res.status: eq 401
+  res.body.error.code: eq unauthorized
+}
