@@ -1,9 +1,7 @@
 // Package migrate applies the SQL pairs embedded in the binary to PostgreSQL. Every run
 // holds a transaction-scoped advisory lock, so two replicas starting at once cannot apply
-// the same migration twice (research R-06 of spec 003).
-//
-// This is a copy of backend/auth/internal/migrate (spec 004 research R-04). Extract a shared module
-// when a third service with a database appears or when one copy needs a fix the other lacks.
+// the same migration twice. It is shared by the services that own a database; each of them
+// passes the lock key of its own database to New.
 package migrate
 
 import (
@@ -19,12 +17,18 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	table = "schema_migration"
-	// advisoryLockKey only has to be stable and not shared with another
-	// pg_advisory_lock user inside the location database.
-	advisoryLockKey = int64(0x4c6f_63_6174)
-)
+const table = "schema_migration"
+
+// Migrator applies migrations to one database under the advisory lock key it was given.
+type Migrator struct {
+	lockKey int64
+}
+
+// New returns a Migrator. lockKey only has to be stable and not shared with another
+// pg_advisory_lock user inside the same database.
+func New(lockKey int64) *Migrator {
+	return &Migrator{lockKey: lockKey}
+}
 
 // Migration is one `<version>_<name>.up.sql` / `.down.sql` pair.
 type Migration struct {
@@ -96,8 +100,8 @@ func parse(name string) (version, kind string, ok bool) {
 }
 
 // Up applies every migration whose version is missing from schema_migration.
-func Up(ctx context.Context, pool *pgxpool.Pool, migrations []Migration) error {
-	return withSchemaLock(ctx, pool, func(tx pgx.Tx) error {
+func (m *Migrator) Up(ctx context.Context, pool *pgxpool.Pool, migrations []Migration) error {
+	return m.withSchemaLock(ctx, pool, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `create table if not exists `+table+` (
 			version    text primary key,
 			applied_at timestamptz not null default now()
@@ -125,11 +129,11 @@ func Up(ctx context.Context, pool *pgxpool.Pool, migrations []Migration) error {
 }
 
 // UpWaiting retries Up while PostgreSQL is still starting: compose brings both containers
-// up at once, so the first connection attempts are expected to fail (R-06).
-func UpWaiting(ctx context.Context, pool *pgxpool.Pool, migrations []Migration, attempts int, delay time.Duration) error {
+// up at once, so the first connection attempts are expected to fail.
+func (m *Migrator) UpWaiting(ctx context.Context, pool *pgxpool.Pool, migrations []Migration, attempts int, delay time.Duration) error {
 	var lastErr error
 	for attempt := range attempts {
-		if err := Up(ctx, pool, migrations); err != nil {
+		if err := m.Up(ctx, pool, migrations); err != nil {
 			lastErr = err
 		} else {
 			return nil
@@ -148,8 +152,8 @@ func UpWaiting(ctx context.Context, pool *pgxpool.Pool, migrations []Migration, 
 
 // Down reverts applied migrations newest first, which is the path the readiness check of
 // the down script takes.
-func Down(ctx context.Context, pool *pgxpool.Pool, migrations []Migration) error {
-	return withSchemaLock(ctx, pool, func(tx pgx.Tx) error {
+func (m *Migrator) Down(ctx context.Context, pool *pgxpool.Pool, migrations []Migration) error {
+	return m.withSchemaLock(ctx, pool, func(tx pgx.Tx) error {
 		applied, err := versions(ctx, tx)
 		if err != nil {
 			return err
@@ -171,7 +175,7 @@ func Down(ctx context.Context, pool *pgxpool.Pool, migrations []Migration) error
 	})
 }
 
-func withSchemaLock(ctx context.Context, pool *pgxpool.Pool, apply func(pgx.Tx) error) error {
+func (m *Migrator) withSchemaLock(ctx context.Context, pool *pgxpool.Pool, apply func(pgx.Tx) error) error {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("acquire connection: %w", err)
@@ -184,7 +188,7 @@ func withSchemaLock(ctx context.Context, pool *pgxpool.Pool, apply func(pgx.Tx) 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock($1)`, advisoryLockKey); err != nil {
+	if _, err := tx.Exec(ctx, `select pg_advisory_xact_lock($1)`, m.lockKey); err != nil {
 		return fmt.Errorf("take advisory lock: %w", err)
 	}
 	if err := apply(tx); err != nil {

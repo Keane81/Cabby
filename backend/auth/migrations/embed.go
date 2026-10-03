@@ -9,3 +9,7 @@ import "embed"
 //
 //go:embed *.sql
 var FS embed.FS
+
+// LockKey is the advisory lock key of the auth database; it only has to be stable and not shared with
+// another pg_advisory_lock user inside it.
+const LockKey = int64(0x4361_62_6279)

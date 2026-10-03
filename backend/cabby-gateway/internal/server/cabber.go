@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/requestid"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 )
 
 // maxCabberBody bounds one request body before it is parsed. The three short fields the contract

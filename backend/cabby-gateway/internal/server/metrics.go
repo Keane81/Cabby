@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Keane81/Cabby/backend/platform/metricshttp"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // Operations and outcomes of the cabber counters (R-11). Both label sets are closed: a request can
@@ -127,17 +127,5 @@ func outcomeOfStatus(status int) string {
 }
 
 func (m *Metrics) Handler() http.Handler {
-	exporter := promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/metrics" {
-			http.NotFound(w, r)
-			return
-		}
-		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", http.MethodGet)
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		exporter.ServeHTTP(w, r)
-	})
+	return metricshttp.Handler(m.registry)
 }

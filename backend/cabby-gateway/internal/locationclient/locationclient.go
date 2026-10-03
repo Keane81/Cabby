@@ -9,12 +9,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/requestid"
 	"github.com/Keane81/Cabby/backend/contracts/locationpb"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -76,24 +75,13 @@ func (c *Client) RecordCabberLocation(ctx context.Context, cabberID string, lati
 	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	response, err := c.api.RecordCabberLocation(withRequestID(callCtx), &locationpb.RecordCabberLocationRequest{
+	response, err := c.api.RecordCabberLocation(requestid.Outgoing(callCtx), &locationpb.RecordCabberLocationRequest{
 		CabberId: cabberID, Latitude: latitude, Longitude: longitude,
 	})
 	if err != nil {
 		return time.Time{}, translate(err)
 	}
 	return time.Unix(response.GetReceivedAtUnix(), int64(response.GetReceivedAtNanos())).UTC(), nil
-}
-
-// withRequestID attaches the identifier the public server minted for this request. A call that came
-// by another route carries none, and inventing one here would put a value in the log of location that
-// no line of ours repeats.
-func withRequestID(ctx context.Context) context.Context {
-	id := requestid.From(ctx)
-	if id == "" {
-		return ctx
-	}
-	return metadata.AppendToOutgoingContext(ctx, requestid.MetadataKey, id)
 }
 
 // translate maps a gRPC status onto the domain results of the port. Nothing of the status message

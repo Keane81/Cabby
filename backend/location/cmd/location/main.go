@@ -17,10 +17,11 @@ import (
 	"github.com/Keane81/Cabby/backend/lifecycle"
 	"github.com/Keane81/Cabby/backend/location/internal/config"
 	"github.com/Keane81/Cabby/backend/location/internal/grpcserver"
-	"github.com/Keane81/Cabby/backend/location/internal/migrate"
+	"github.com/Keane81/Cabby/backend/location/internal/metrics"
 	"github.com/Keane81/Cabby/backend/location/internal/repo"
 	"github.com/Keane81/Cabby/backend/location/internal/service"
 	"github.com/Keane81/Cabby/backend/location/migrations"
+	"github.com/Keane81/Cabby/backend/platform/migrate"
 )
 
 const (
@@ -76,7 +77,7 @@ func run(ctx context.Context, logger zerolog.Logger, migrateOnly bool) error {
 	if err != nil {
 		return err
 	}
-	if err := migrate.UpWaiting(ctx, pool, scripts, migrateAttempts, migrateDelay); err != nil {
+	if err := migrate.New(migrations.LockKey).UpWaiting(ctx, pool, scripts, migrateAttempts, migrateDelay); err != nil {
 		return err
 	}
 	// The line is the report quickstart §2 reads back.
@@ -90,7 +91,7 @@ func run(ctx context.Context, logger zerolog.Logger, migrateOnly bool) error {
 // serve wires the case layer onto its two transports and runs until a signal arrives or one of the
 // listeners ends.
 func serve(ctx context.Context, logger zerolog.Logger, cfg config.Config, pool *pgxpool.Pool) error {
-	metrics := grpcserver.NewMetrics()
+	metrics := metrics.New()
 	svc := service.New(metrics.Locations(repo.NewLocations(pool)), logger, time.Now)
 
 	grpcListener, err := net.Listen("tcp", cfg.GRPCAddress)

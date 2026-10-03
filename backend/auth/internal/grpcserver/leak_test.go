@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 	"strings"
 	"testing"
 
@@ -36,7 +37,7 @@ func TestNoSinkOfAuthCarriesAValueOfACall(t *testing.T) {
 	cabbers := newMemoryCabbers()
 	server := servingLogged(t, &logs, cabbers, newMemorySessions())
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
-		requestIDMetadataKey: []string{leakRequestIDKey},
+		requestid.MetadataKey: []string{leakRequestIDKey},
 	})
 
 	var refusals []string

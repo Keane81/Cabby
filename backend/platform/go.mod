@@ -1,11 +1,8 @@
-module github.com/Keane81/Cabby/backend/location
+module github.com/Keane81/Cabby/backend/platform
 
 go 1.26.1
 
 require (
-	github.com/Keane81/Cabby/backend/contracts v0.0.0-00010101000000-000000000000
-	github.com/Keane81/Cabby/backend/lifecycle v0.0.0-00010101000000-000000000000
-	github.com/Keane81/Cabby/backend/platform v0.0.0-00010101000000-000000000000
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/rs/zerolog v1.35.1
@@ -29,11 +26,5 @@ require (
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
-	google.golang.org/protobuf v1.36.12 // indirect
+	google.golang.org/protobuf v1.36.11 // indirect
 )
-
-replace github.com/Keane81/Cabby/backend/contracts => ../contracts
-
-replace github.com/Keane81/Cabby/backend/lifecycle => ../lifecycle
-
-replace github.com/Keane81/Cabby/backend/platform => ../platform

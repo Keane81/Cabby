@@ -16,12 +16,13 @@ import (
 
 	"github.com/Keane81/Cabby/backend/auth/internal/config"
 	"github.com/Keane81/Cabby/backend/auth/internal/grpcserver"
-	"github.com/Keane81/Cabby/backend/auth/internal/migrate"
+	"github.com/Keane81/Cabby/backend/auth/internal/metrics"
 	"github.com/Keane81/Cabby/backend/auth/internal/password"
 	"github.com/Keane81/Cabby/backend/auth/internal/repo"
 	"github.com/Keane81/Cabby/backend/auth/internal/service"
 	"github.com/Keane81/Cabby/backend/auth/migrations"
 	"github.com/Keane81/Cabby/backend/lifecycle"
+	"github.com/Keane81/Cabby/backend/platform/migrate"
 )
 
 const (
@@ -69,7 +70,7 @@ func run(ctx context.Context, logger zerolog.Logger, migrateOnly bool) error {
 	if err != nil {
 		return err
 	}
-	if err := migrate.UpWaiting(ctx, pool, scripts, migrateAttempts, migrateDelay); err != nil {
+	if err := migrate.New(migrations.LockKey).UpWaiting(ctx, pool, scripts, migrateAttempts, migrateDelay); err != nil {
 		return err
 	}
 	// The line is the report quickstart §3 reads back: compose starts the service next to a database
@@ -84,7 +85,7 @@ func run(ctx context.Context, logger zerolog.Logger, migrateOnly bool) error {
 // serve wires the case layer onto its two transports and runs until a signal arrives or one of the
 // listeners ends.
 func serve(ctx context.Context, logger zerolog.Logger, cfg config.Config, pool *pgxpool.Pool) error {
-	metrics := grpcserver.NewMetrics()
+	metrics := metrics.New()
 	svc := service.New(
 		metrics.Cabbers(repo.NewCabbers(pool)),
 		metrics.Sessions(repo.NewSessions(pool)),
