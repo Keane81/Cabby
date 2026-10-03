@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Keane81/Cabby/backend/contracts/locationpb"
+	"github.com/Keane81/Cabby/backend/location/internal/metrics"
 	"github.com/Keane81/Cabby/backend/location/internal/repo"
 	"github.com/Keane81/Cabby/backend/location/internal/service"
 	"github.com/rs/zerolog"
@@ -43,7 +45,7 @@ func (m *memoryLocations) Insert(_ context.Context, location repo.Location) erro
 type fixture struct {
 	locationpb.LocationServiceClient
 	raw     *grpc.ClientConn
-	metrics *Metrics
+	metrics *metrics.Metrics
 	logs    *bytes.Buffer
 }
 
@@ -52,7 +54,7 @@ func serveWith(t *testing.T, storage repo.LocationRepository) *fixture {
 
 	var logs bytes.Buffer
 	listener := bufconn.Listen(64 * 1024)
-	metrics := NewMetrics()
+	metrics := metrics.New()
 	logger := zerolog.New(&logs)
 	server := grpc.NewServer(grpc.UnaryInterceptor(metrics.UnaryInterceptor(logger)))
 	NewServer(service.New(metrics.Locations(storage), logger, time.Now)).Register(server)
@@ -196,7 +198,7 @@ func TestRequestIDOfTheGatewayIsReusedWhenWellFormedAndReplacedOtherwise(t *test
 		{"text of a caller's choosing", "55.7558,37.6173!!!!", false},
 	} {
 		server := serveWith(t, &memoryLocations{})
-		ctx := metadata.AppendToOutgoingContext(context.Background(), requestIDMetadataKey, tc.sent)
+		ctx := metadata.AppendToOutgoingContext(context.Background(), requestid.MetadataKey, tc.sent)
 		if _, err := server.RecordCabberLocation(ctx, &locationpb.RecordCabberLocationRequest{
 			CabberId: testCabber, Latitude: 1, Longitude: 1,
 		}); err != nil {
