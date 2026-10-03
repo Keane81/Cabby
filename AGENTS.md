@@ -12,8 +12,9 @@
 
 1. **Контракт.** Добавьте операцию в канонический документ `backend/cabby-gateway/api/openapi.yaml` и синхронизируйте проектный эталон `specs/002-gateway-external-contract/contracts/openapi.yaml`. Обе копии должны совпадать байт-в-байт: это проверяет тест `TestCanonicalContractMatchesRepositoryReference`, а соответствие маршрутов роутера контракту — `TestRouterPathsAreDefinedInContract`. Обновите человекочитаемое руководство `specs/002-gateway-external-contract/contracts/external-api.md` и поднимите `info.version` по SemVer (новая операция — аддитивное изменение, minor).
 2. **Bruno-коллекция.** Добавьте запрос в `backend/bruno/cabby-gateway/` (новый `<name>.bru` с `url: {{host}}/<path>` и уникальным `seq`), чтобы эндпоинт можно было проверить вручную во всех окружениях.
+3. **Smoke-сценарий.** Добавьте запрос в `backend/bruno/cabby-gateway/smoke/` (файл `NN-<name>.bru` с `assert` на статус и код ошибки, `seq` в порядке выполнения): положительный случай и значимые ошибки — 400, 401, 409 и т. п. Сценарий должен проходить и на пустой, и на заполненной базе, поэтому данные, которые должны быть уникальными (email), генерируйте в `script:pre-request`. Проверка — `make docker-up-clean && make smoke`.
 
-Эндпоинт считается готовым только когда код, контракт (обе копии + руководство) и Bruno-коллекция согласованы, а `make check` из корня репозитория (`test`, `test-race`, `vet` по всем модулям backend) зелёный.
+Эндпоинт считается готовым только когда код, контракт (обе копии + руководство), Bruno-коллекция и smoke-сценарий согласованы, `make smoke` на чистом стеке зелёный, а `make check` из корня репозитория (`test`, `test-race`, `vet` по всем модулям backend) зелёный.
 
 ## Новый backend-сервис
 
@@ -54,6 +55,10 @@ Dockerfile, Makefile (run, migrate, test, test-race, vet, test-integration), .en
 **Наблюдаемость.** Каждый сервис отдаёт `/metrics` через `platform/metricshttp` на отдельном порту, прописанном константой, и оборачивает репозитории счётчиком запросов в `internal/metrics`.
 
 **Готовность.** `go.mod` сервиса содержит `replace` на `contracts`, `lifecycle` и `platform`, а его Dockerfile копирует все эти модули (контекст сборки — корень репозитория). Новый сервис добавлен в `compose.yaml`, `deploy/` (БД и мониторинг), `MODULES` в `backend/Makefile` (для `make check`), а в gateway — клиент и маршруты по правилам раздела про публичные эндпоинты.
+
+## Слияние в main
+
+Ветки вливайте в `main` только через `git merge --no-ff`, чтобы в истории оставался merge-коммит. Fast-forward и rebase-слияние не используйте.
 
 ## Сообщения коммитов
 
