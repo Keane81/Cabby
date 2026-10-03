@@ -1,0 +1,129 @@
+openapi: 3.0.3
+info:
+  title: Cabby DB Viewer (internal)
+  version: 0.1.0
+  description: Read-only API for the local database viewer. Not part of the public gateway contract.
+servers:
+  - url: http://127.0.0.1:8090
+paths:
+  /healthz:
+    get:
+      operationId: health
+      responses:
+        "200": { description: process is alive }
+  /api/databases:
+    get:
+      operationId: listDatabases
+      parameters:
+        - name: refresh
+          in: query
+          description: "1 drops the cached schema before reading; sizes and row counts are always read fresh."
+          schema: { type: string, enum: ["1"] }
+      responses:
+        "200":
+          description: Databases with sizes and tables.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [databases, refreshedAt]
+                properties:
+                  refreshedAt: { type: string, format: date-time }
+                  databases:
+                    type: array
+                    items: { $ref: "#/components/schemas/Database" }
+  /api/databases/{db}/tables/{table}/rows:
+    get:
+      operationId: listRows
+      parameters:
+        - { name: db, in: path, required: true, schema: { type: string, enum: [auth, location] } }
+        - { name: table, in: path, required: true, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 } }
+        - name: filter
+          in: query
+          description: "Repeatable, `column:op:value`; op is one of eq, contains, gte, lte, is_null."
+          schema: { type: array, items: { type: string } }
+          explode: true
+        - { name: sort, in: query, schema: { type: string } }
+        - { name: dir, in: query, schema: { type: string, enum: [asc, desc], default: asc } }
+        - { name: page, in: query, schema: { type: integer, minimum: 1, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        "200":
+          description: A page of rows.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RowPage" }
+        "400": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+        "504": { $ref: "#/components/responses/Error" }
+components:
+  responses:
+    Error:
+      description: Error with a fixed code and message.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [error]
+            properties:
+              error:
+                type: object
+                required: [code, message]
+                properties:
+                  code: { type: string }
+                  message: { type: string }
+  schemas:
+    Database:
+      type: object
+      required: [name, available]
+      properties:
+        name: { type: string }
+        available: { type: boolean }
+        error: { type: string }
+        sizeBytes: { type: integer, format: int64 }
+        tables:
+          type: array
+          items: { $ref: "#/components/schemas/Table" }
+    Table:
+      type: object
+      required: [name, columns]
+      properties:
+        name: { type: string }
+        estimatedRows: { type: integer, format: int64 }
+        exact: { type: boolean }
+        dataBytes: { type: integer, format: int64 }
+        indexBytes: { type: integer, format: int64 }
+        totalBytes: { type: integer, format: int64 }
+        primaryKey: { type: array, items: { type: string } }
+        columns:
+          type: array
+          items: { $ref: "#/components/schemas/Column" }
+    Column:
+      type: object
+      required: [name, type, sensitive, searchable, filterable, sortable]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [text, number, timestamp, uuid, bool, other] }
+        sensitive: { type: boolean }
+        searchable: { type: boolean }
+        filterable: { type: boolean }
+        sortable: { type: boolean }
+    RowPage:
+      type: object
+      required: [columns, rows, total, page, pageSize]
+      properties:
+        columns: { type: array, items: { type: string } }
+        rows:
+          type: array
+          description: Cells are JSON values; null is SQL NULL; a masked cell is {"masked": true}.
+          items: { type: array, items: {} }
+        total:
+          type: object
+          required: [value, kind]
+          properties:
+            value: { type: integer, format: int64 }
+            kind: { type: string, enum: [exact, estimate, atLeast] }
+        page: { type: integer }
+        pageSize: { type: integer }

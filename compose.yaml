@@ -64,6 +64,21 @@ services:
     volumes:
       - location-data:/var/lib/postgresql
 
+  # Read-only viewer of the auth and location databases (specs/006-db-viewer). It reads the databases
+  # directly, not through the gateway or the services, and is published on the loopback interface only.
+  dbviewer:
+    build:
+      context: .
+      dockerfile: backend/dbviewer/Dockerfile
+    env_file:
+      - ./backend/dbviewer/.env
+    depends_on:
+      - auth-db
+      - location-db
+    ports:
+      - "127.0.0.1:${CABBY_DBVIEWER_HTTP_PORT:-8090}:${CABBY_DBVIEWER_HTTP_PORT:-8090}"
+    stop_grace_period: 10s
+
   prometheus:
     image: prom/prometheus:v3.14.0
     depends_on:
