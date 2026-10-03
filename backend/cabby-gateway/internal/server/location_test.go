@@ -12,7 +12,7 @@ import (
 
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/authclient"
 	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/locationclient"
-	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/requestid"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 	"github.com/rs/zerolog"
 )
 

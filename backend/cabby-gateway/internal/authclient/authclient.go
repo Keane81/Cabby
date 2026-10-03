@@ -9,12 +9,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/requestid"
 	"github.com/Keane81/Cabby/backend/contracts/authpb"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
@@ -93,7 +92,7 @@ func (c *Client) RegisterCabber(ctx context.Context, name, email, password strin
 	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	response, err := c.api.RegisterCabber(withRequestID(callCtx), &authpb.RegisterCabberRequest{
+	response, err := c.api.RegisterCabber(requestid.Outgoing(callCtx), &authpb.RegisterCabberRequest{
 		Name: name, Email: email, Password: password,
 	})
 	if err != nil {
@@ -106,7 +105,7 @@ func (c *Client) CreateCabberSession(ctx context.Context, email, password string
 	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	response, err := c.api.CreateCabberSession(withRequestID(callCtx), &authpb.CreateCabberSessionRequest{
+	response, err := c.api.CreateCabberSession(requestid.Outgoing(callCtx), &authpb.CreateCabberSessionRequest{
 		Email: email, Password: password,
 	})
 	if err != nil {
@@ -122,7 +121,7 @@ func (c *Client) DeleteCabberSession(ctx context.Context, accessToken string) er
 	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	_, err := c.api.DeleteCabberSession(withRequestID(callCtx), &authpb.DeleteCabberSessionRequest{
+	_, err := c.api.DeleteCabberSession(requestid.Outgoing(callCtx), &authpb.DeleteCabberSessionRequest{
 		AccessToken: accessToken,
 	})
 	return translate(err)
@@ -132,24 +131,13 @@ func (c *Client) VerifyCabberSession(ctx context.Context, accessToken string) (s
 	callCtx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	response, err := c.api.VerifyCabberSession(withRequestID(callCtx), &authpb.VerifyCabberSessionRequest{
+	response, err := c.api.VerifyCabberSession(requestid.Outgoing(callCtx), &authpb.VerifyCabberSessionRequest{
 		AccessToken: accessToken,
 	})
 	if err != nil {
 		return "", translate(err)
 	}
 	return response.GetCabberId(), nil
-}
-
-// withRequestID attaches the identifier the public server minted for this request. A call that came
-// by another route carries none, and inventing one here would put a value in the log of auth that no
-// line of ours repeats.
-func withRequestID(ctx context.Context) context.Context {
-	id := requestid.From(ctx)
-	if id == "" {
-		return ctx
-	}
-	return metadata.AppendToOutgoingContext(ctx, requestid.MetadataKey, id)
 }
 
 // translate maps a gRPC status onto the domain results of the port, following the table of

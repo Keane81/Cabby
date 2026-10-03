@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Keane81/Cabby/backend/cabby-gateway/internal/requestid"
 	"github.com/Keane81/Cabby/backend/contracts/locationpb"
+	"github.com/Keane81/Cabby/backend/platform/requestid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials/insecure"
