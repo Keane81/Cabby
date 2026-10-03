@@ -34,3 +34,6 @@ vendor/
 
 # Spec Kit: .specify/.gitignore excludes local feature.json and extension overrides.
 # Keep specs/, the constitution, scripts, templates, and integration files versioned.
+
+# Summaries written by backend/emulator (make emulate) into the working directory
+emulator-report-*.json

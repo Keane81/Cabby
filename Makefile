@@ -1,4 +1,4 @@
-.PHONY: docker-up docker-up-clean docker-down docker-ps smoke test test-race vet check
+.PHONY: docker-up docker-up-clean docker-down docker-ps smoke emulate test test-race vet check
 
 # Backend checks run through backend/Makefile, which covers every module.
 test test-race vet check:
@@ -39,3 +39,12 @@ smoke:
 	echo "waiting for $$host/healthz"; \
 	for i in $$(seq 1 30); do curl -fs $$host/healthz >/dev/null && break; sleep 1; done
 	cd $(SMOKE_DIR) && npx --yes @usebruno/cli run smoke --env $(SMOKE_ENV)
+
+# Park of emulated cabbers against the local stack (specs/005-cabber-fleet-emulator). The target is
+# the host of the LOCAL Bruno environment, like in `smoke`, unless ARGS names its own -target.
+# Everything the emulator creates stays in the databases; `make docker-up-clean` empties them.
+#   make emulate ARGS="-cabbers 1000 -interval 5s -duration 10m"
+emulate:
+	@target=$$(sed -n 's/^ *host: *//p' $(SMOKE_DIR)/environments/$(SMOKE_ENV).bru); \
+	case " $(ARGS) " in *" -target "*|*" -target="*) target_flag="" ;; *) target_flag="-target $$target" ;; esac; \
+	cd backend/emulator && go run ./cmd/emulator $$target_flag $(ARGS)
