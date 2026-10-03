@@ -1,0 +1,23 @@
+meta {
+  name: 09 location, no Authorization header
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  }
+}
+
+assert {
+  res.status: eq 401
+  res.body.error.code: eq unauthorized
+}

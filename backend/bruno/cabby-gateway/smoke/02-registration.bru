@@ -1,0 +1,37 @@
+meta {
+  name: 02 registration
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{host}}/cabbers
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "Smoke Cabber",
+    "email": "{{smokeEmail}}",
+    "password": "{{smokePassword}}"
+  }
+}
+
+script:pre-request {
+  // A fresh address per run, so the smoke passes on a clean and on a used database alike.
+  bru.setVar("smokeEmail", `smoke-${Date.now()}@example.com`);
+  bru.setVar("smokePassword", "smoke1234");
+}
+
+assert {
+  res.status: eq 201
+}
+
+tests {
+  test("returns the id and the canonical email, no secrets", function () {
+    expect(res.body.cabber_id).to.be.a("string").and.not.empty;
+    expect(res.body.email).to.equal(bru.getVar("smokeEmail"));
+    expect(res.body).to.not.have.property("password");
+  });
+}

@@ -1,0 +1,27 @@
+meta {
+  name: 10 location, not a bearer scheme
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: none
+}
+
+headers {
+  Authorization: Basic {{smokeToken}}
+}
+
+body:json {
+  {
+    "latitude": 55.7558,
+    "longitude": 37.6173
+  }
+}
+
+assert {
+  res.status: eq 401
+  res.body.error.code: eq unauthorized
+}

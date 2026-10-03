@@ -1,0 +1,25 @@
+meta {
+  name: 14 location, longitude below -180
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{host}}/cabber/location
+  body: json
+  auth: bearer
+}
+
+auth:bearer {
+  token: {{smokeToken}}
+}
+
+body:json {
+  { "latitude": 55.7558, "longitude": -180.0001 }
+}
+
+assert {
+  res.status: eq 400
+  res.body.error.code: eq invalid_request
+  res.body.error.field: eq longitude
+}
