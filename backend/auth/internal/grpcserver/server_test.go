@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Keane81/Cabby/backend/auth/internal/metrics"
 	"github.com/Keane81/Cabby/backend/auth/internal/repo"
 	"github.com/Keane81/Cabby/backend/auth/internal/service"
 	"github.com/Keane81/Cabby/backend/contracts/authpb"
@@ -39,7 +40,7 @@ func TestUnknownMethodKeepsLabelSetClosed(t *testing.T) {
 type fixture struct {
 	authpb.AuthServiceClient
 	raw     *grpc.ClientConn
-	metrics *Metrics
+	metrics *metrics.Metrics
 }
 
 func (f *fixture) exported(t *testing.T) string {
@@ -81,7 +82,7 @@ func servingLogged(t *testing.T, logs io.Writer, cabbers repo.CabberRepository, 
 	t.Helper()
 
 	listener := bufconn.Listen(64 * 1024)
-	metrics := NewMetrics()
+	metrics := metrics.New()
 	logger := zerolog.New(logs)
 	server := grpc.NewServer(grpc.UnaryInterceptor(metrics.UnaryInterceptor(logger)))
 	NewServer(service.New(cabbers, sessions, cheap, logger, time.Now)).Register(server)

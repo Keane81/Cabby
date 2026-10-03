@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Keane81/Cabby/backend/auth/internal/migrate"
 	"github.com/Keane81/Cabby/backend/auth/internal/repo"
 	"github.com/Keane81/Cabby/backend/auth/migrations"
+	"github.com/Keane81/Cabby/backend/platform/migrate"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -173,7 +173,7 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	if err != nil {
 		t.Fatalf("load migrations: %v", err)
 	}
-	if err := migrate.Up(ctx, pool, scripts); err != nil {
+	if err := migrate.New(migrations.LockKey).Up(ctx, pool, scripts); err != nil {
 		t.Fatalf("apply migrations: %v", err)
 	}
 	return pool

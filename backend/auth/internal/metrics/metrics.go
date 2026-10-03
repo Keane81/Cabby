@@ -1,7 +1,7 @@
-// Package grpcserver is the transport of the auth service: it implements auth.v1.AuthService
-// over the cases in internal/service and owns what the transport observes — request logs and
-// Prometheus metrics. It contains no SQL and no business rule.
-package grpcserver
+// Package metrics owns what the auth service exposes to Prometheus: the series of its requests and of
+// its repositories, the interceptor that feeds them and the handler that serves them. It contains no
+// SQL and no business rule.
+package metrics
 
 import (
 	"context"
@@ -11,8 +11,11 @@ import (
 	"time"
 
 	"github.com/Keane81/Cabby/backend/auth/internal/repo"
+	"github.com/Keane81/Cabby/backend/platform/grpcobs"
+	"github.com/Keane81/Cabby/backend/platform/metricshttp"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/rs/zerolog"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 )
 
@@ -58,9 +61,9 @@ type Metrics struct {
 	queries  *prometheus.CounterVec
 }
 
-// NewMetrics registers the series and lights up the zero values of the fixed labels so a
+// New registers the series and lights up the zero values of the fixed labels so a
 // dashboard reads 0 instead of «no data» before the first request.
-func NewMetrics() *Metrics {
+func New() *Metrics {
 	registry := prometheus.NewRegistry()
 	requests := prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "cabby_auth_requests_total",
@@ -94,18 +97,17 @@ func NewMetrics() *Metrics {
 
 // Handler serves /metrics for the private :9094 listener.
 func (m *Metrics) Handler() http.Handler {
-	exporter := promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/metrics" {
-			http.NotFound(w, r)
-			return
-		}
-		if r.Method != http.MethodGet {
-			w.Header().Set("Allow", http.MethodGet)
-			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
-		exporter.ServeHTTP(w, r)
+	return metricshttp.Handler(m.registry)
+}
+
+// UnaryInterceptor is the observability of every call: the panic guard, the log line and the series
+// of this package for the same outcome.
+func (m *Metrics) UnaryInterceptor(logger zerolog.Logger) grpc.UnaryServerInterceptor {
+	return grpcobs.UnaryInterceptor(grpcobs.Options{
+		Service: "auth",
+		Logger:  logger,
+		Method:  methodOf,
+		Observe: m.observeRequest,
 	})
 }
 

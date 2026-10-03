@@ -2,7 +2,7 @@
 
 // Requires a reachable PostgreSQL: `CABBY_AUTH_DB_URL=postgres://... make -C backend/auth
 // test-integration`. Without the variable every case skips itself so `make test` stays green.
-package migrate_test
+package migrations_test
 
 import (
 	"context"
@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Keane81/Cabby/backend/auth/internal/migrate"
 	"github.com/Keane81/Cabby/backend/auth/migrations"
+	"github.com/Keane81/Cabby/backend/platform/migrate"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -20,12 +20,13 @@ import (
 func TestUpAppliesOnceAndSecondRunIsNoOp(t *testing.T) {
 	ctx := context.Background()
 	pool, schema := testPool(ctx, t)
+	migrator := migrate.New(migrations.LockKey)
 	scripts, err := migrate.Load(migrations.FS)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if err := migrate.Up(ctx, pool, scripts); err != nil {
+	if err := migrator.Up(ctx, pool, scripts); err != nil {
 		t.Fatalf("first Up: %v", err)
 	}
 	for _, table := range []string{"cabber", "cabber_session", "schema_migration"} {
@@ -37,7 +38,7 @@ func TestUpAppliesOnceAndSecondRunIsNoOp(t *testing.T) {
 		t.Fatalf("applied rows after first Up = %d, want 1", got)
 	}
 
-	if err := migrate.Up(ctx, pool, scripts); err != nil {
+	if err := migrator.Up(ctx, pool, scripts); err != nil {
 		t.Fatalf("second Up: %v", err)
 	}
 	if got := appliedVersions(ctx, t, pool); got != 1 {
@@ -48,15 +49,16 @@ func TestUpAppliesOnceAndSecondRunIsNoOp(t *testing.T) {
 func TestDownRestoresEmptySchema(t *testing.T) {
 	ctx := context.Background()
 	pool, schema := testPool(ctx, t)
+	migrator := migrate.New(migrations.LockKey)
 	scripts, err := migrate.Load(migrations.FS)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if err := migrate.Up(ctx, pool, scripts); err != nil {
+	if err := migrator.Up(ctx, pool, scripts); err != nil {
 		t.Fatalf("Up: %v", err)
 	}
-	if err := migrate.Down(ctx, pool, scripts); err != nil {
+	if err := migrator.Down(ctx, pool, scripts); err != nil {
 		t.Fatalf("Down: %v", err)
 	}
 	for _, table := range []string{"cabber", "cabber_session"} {

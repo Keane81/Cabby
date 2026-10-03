@@ -5,6 +5,7 @@ go 1.26.1
 require (
 	github.com/Keane81/Cabby/backend/contracts v0.0.0-00010101000000-000000000000
 	github.com/Keane81/Cabby/backend/lifecycle v0.0.0-00010101000000-000000000000
+	github.com/Keane81/Cabby/backend/platform v0.0.0-00010101000000-000000000000
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/rs/zerolog v1.35.1
@@ -35,3 +36,5 @@ require (
 replace github.com/Keane81/Cabby/backend/contracts => ../contracts
 
 replace github.com/Keane81/Cabby/backend/lifecycle => ../lifecycle
+
+replace github.com/Keane81/Cabby/backend/platform => ../platform
