@@ -3,7 +3,7 @@
 # One entry point for every backend module. Each module keeps its own Makefile and go.mod; this file
 # only runs the same target in all of them and stops at the first failure. Integration tests need a
 # database and stay in `make -C auth test-integration`.
-MODULES := contracts lifecycle platform auth location cabby-gateway
+MODULES := contracts lifecycle platform auth location cabby-gateway dbviewer
 
 test test-race vet:
 	@for module in $(MODULES); do \
